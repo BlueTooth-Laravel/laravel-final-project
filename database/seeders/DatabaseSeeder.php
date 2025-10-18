@@ -25,5 +25,8 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call(DentistSeeder::class);
+        $this->call(SpecializationSeeder::class);
+        $this->call(TreatmentTypeSeeder::class);
+        $this->call(TreatmentRecordSeeder::class);
     }
 }

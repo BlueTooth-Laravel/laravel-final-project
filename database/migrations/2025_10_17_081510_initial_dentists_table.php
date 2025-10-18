@@ -21,6 +21,12 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamps();
         });
+
+        Schema::create('specialization', function (Blueprint $table) {
+            $table->id('specialization_id');
+            $table->string('specialization_name');
+            $table->timestamps();
+        });
     }
 
     /**
@@ -29,5 +35,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('dentists');
+        Schema::dropIfExists('specialization');
     }
 };
