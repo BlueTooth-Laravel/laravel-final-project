@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('dentists', function (Blueprint $table) {
             $table->id('dentist_id');
             $table->string('dentist_fname');
-            $table->string('dentist_mname');
+            $table->string('dentist_mname')->nullable();
             $table->string('dentist_lname');
             $table->integer('specialization');
             $table->string('contact_number')->unique();
