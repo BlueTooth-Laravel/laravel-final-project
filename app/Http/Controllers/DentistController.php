@@ -14,9 +14,4 @@ class DentistController extends Controller
             'dentists' => $dentists
         ]);
     }
-
-    public function apiIndex()
-    {
-        return response()->json(Dentist::all());
-    }
 }

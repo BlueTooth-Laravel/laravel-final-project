@@ -12,42 +12,45 @@ class TreatmentRecordSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('treatment_records')->insert([
-            [
-                'patient_id' => 1,
-                'dentist_id' => 1,
-                'treatment_type_id' => 1,
-                'treatment_details' => 'Routine dental cleaning and check-up. Patient showed good oral hygiene.',
-                'treatment_date' => '2025-10-01',
-            ],
-            [
-                'patient_id' => 1,
-                'dentist_id' => 2,
-                'treatment_type_id' => 2,
-                'treatment_details' => 'Composite filling placed on molar due to cavity. Local anesthesia used.',
-                'treatment_date' => '2025-09-15',
-            ],
-            [
-                'patient_id' => 2,
-                'dentist_id' => 1,
-                'treatment_type_id' => 3,
-                'treatment_details' => 'Root canal therapy completed on upper incisor. Tooth saved successfully.',
-                'treatment_date' => '2025-08-20',
-            ],
-            [
-                'patient_id' => 2,
-                'dentist_id' => 3,
-                'treatment_type_id' => 4,
-                'treatment_details' => 'Porcelain crown placed on damaged premolar. Excellent fit achieved.',
-                'treatment_date' => '2025-07-10',
-            ],
-            [
-                'patient_id' => 3,
-                'dentist_id' => 2,
-                'treatment_type_id' => 5,
-                'treatment_details' => 'Wisdom tooth extraction performed under local anesthesia. No complications.',
-                'treatment_date' => '2025-06-05',
-            ],
+        // This seeder now aligns with the new schema by attaching treatments to existing appointments.
+        $appointment = DB::table('appointments')->orderBy('id')->first();
+        $treatmentType = DB::table('treatment_types')->orderBy('id')->first();
+
+        if (!$appointment || !$treatmentType) {
+            return; // Skip if prerequisites are missing
+        }
+
+        // Create one completed treatment record with notes
+        $recordId = DB::table('appointment_treatments_records')->insertGetId([
+            'appointment_id' => $appointment->id,
+            'treatment_type_id' => $treatmentType->id,
+            'treatment_notes' => 'Completed treatment; patient tolerated well.',
+            'file_path' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
+
+        // Attach some teeth via pivot
+        $teeth = DB::table('teeth')->whereIn('id', [14, 15])->pluck('id')->all();
+        foreach ($teeth as $toothId) {
+            DB::table('appointment_treatment_teeth')->updateOrInsert([
+                'appointment_treatment_record_id' => $recordId,
+                'tooth_id' => $toothId,
+            ], [
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        // Optionally add an example file entry
+        // DB::table('treatment_record_files')->insert([
+        //     'appointment_treatment_record_id' => $recordId,
+        //     'file_path' => 'uploads/treatments/example.jpg',
+        //     'original_name' => 'example.jpg',
+        //     'mime_type' => 'image/jpeg',
+        //     'size' => 204800,
+        //     'created_at' => now(),
+        //     'updated_at' => now(),
+        // ]);
     }
 }

@@ -19,7 +19,10 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'fname',
+        'mname',
+        'lname',
+        'role_id',
         'email',
         'password',
     ];
@@ -48,5 +51,14 @@ class User extends Authenticatable
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Get the concatenated full name.
+     */
+    public function getNameAttribute(): string
+    {
+        $parts = array_filter([$this->fname ?? null, $this->mname ?? null, $this->lname ?? null]);
+        return implode(' ', $parts);
     }
 }

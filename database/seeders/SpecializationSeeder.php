@@ -12,14 +12,14 @@ class SpecializationSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('specialization')->insert([
-            ['specialization_name' => 'General Dentistry'],
-            ['specialization_name' => 'Orthodontics'],
-            ['specialization_name' => 'Oral Surgery'],
-            ['specialization_name' => 'Periodontics'],
-            ['specialization_name' => 'Endodontics'],
-            ['specialization_name' => 'Pediatric Dentistry'],
-            ['specialization_name' => 'Prosthodontics'],
-        ]);
+        DB::table('specializations')->upsert([
+            ['name' => 'General Dentistry'],
+            ['name' => 'Orthodontics'],
+            ['name' => 'Oral Surgery'],
+            ['name' => 'Periodontics'],
+            ['name' => 'Endodontics'],
+            ['name' => 'Pediatric Dentistry'],
+            ['name' => 'Prosthodontics'],
+        ], ['name']);
     }
 }

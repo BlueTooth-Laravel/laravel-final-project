@@ -27,21 +27,62 @@ export default function Register() {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Name</Label>
-                                <Input
-                                    id="name"
-                                    type="text"
-                                    required
-                                    autoFocus
-                                    tabIndex={1}
-                                    autoComplete="name"
-                                    name="name"
-                                    placeholder="Full name"
-                                />
-                                <InputError
-                                    message={errors.name}
-                                    className="mt-2"
-                                />
+                                <div className="grid gap-2 sm:grid-cols-3">
+                                    <div>
+                                        <Label htmlFor="fname">
+                                            First name
+                                        </Label>
+                                        <Input
+                                            id="fname"
+                                            type="text"
+                                            required
+                                            autoFocus
+                                            tabIndex={1}
+                                            autoComplete="given-name"
+                                            name="fname"
+                                            placeholder="First name"
+                                        />
+                                        <InputError
+                                            message={errors.fname}
+                                            className="mt-2"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="mname">
+                                            Middle name (optional)
+                                        </Label>
+                                        <Input
+                                            id="mname"
+                                            type="text"
+                                            tabIndex={2}
+                                            autoComplete="additional-name"
+                                            name="mname"
+                                            placeholder="Middle name"
+                                        />
+                                        <InputError
+                                            message={errors.mname}
+                                            className="mt-2"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="lname">Last name</Label>
+                                        <Input
+                                            id="lname"
+                                            type="text"
+                                            required
+                                            tabIndex={3}
+                                            autoComplete="family-name"
+                                            name="lname"
+                                            placeholder="Last name"
+                                        />
+                                        <InputError
+                                            message={errors.lname}
+                                            className="mt-2"
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="grid gap-2">

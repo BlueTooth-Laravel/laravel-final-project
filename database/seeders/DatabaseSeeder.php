@@ -13,23 +13,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::firstOrCreate(
-            ['email' => 'test@example.com'],
-            [
-                'name' => 'Test User',
-                'password' => 'password',
-                'email_verified_at' => now(),
-            ]
-        );
-
+        // Order matters due to FKs
         $this->call([
+            RoleSeeder::class,
+            SpecializationSeeder::class,
+            TreatmentTypeSeeder::class,
+            TeethSeeder::class,
+            UserSeeder::class,
             PatientSeeder::class,
-            DentistSeeder::class,
+            DentistSeeder::class, // creates dentist_profiles and pivot links
+            AppointmentSeeder::class,
+            TreatmentRecordSeeder::class,
         ]);
-        $this->call(SpecializationSeeder::class);
-        $this->call(TreatmentTypeSeeder::class);
-        $this->call(TreatmentRecordSeeder::class);
     }
 }

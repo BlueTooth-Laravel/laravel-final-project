@@ -6,8 +6,8 @@ use App\Http\Controllers\DentistController;
 use Inertia\Inertia;
 
 // API routes for React frontend
-Route::get('/api/patients', [PatientController::class, 'apiIndex']);
-Route::get('/api/dentists', [DentistController::class, 'apiIndex']);
+Route::get('/api/patients', [\App\Http\Controllers\Api\PatientController::class, 'index']);
+Route::get('/api/dentists', [\App\Http\Controllers\Api\DentistController::class, 'index']);
 
 Route::get('/', function () {
     return Inertia::render('welcome');

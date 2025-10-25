@@ -2,8 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\Dentist;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use App\Models\User;
 
 class DentistSeeder extends Seeder
 {
@@ -12,24 +13,36 @@ class DentistSeeder extends Seeder
      */
     public function run(): void
     {
-        Dentist::create([
-            'dentist_fname' => 'John',
-            'dentist_mname' => 'Alo',
-            'dentist_lname' => 'Doe',
-            'specialization' => 1, // Assuming 1 is for General Dentistry
-            'contact_number' => '123-456-7890',
-            'email' => 'john.doe@example.com',
-        ]);
+        // Link the already seeded dentist user to a profile and specializations
+        $dentist = User::where('email', 'dentist@example.com')->first();
+        if (!$dentist) {
+            return; // ensure idempotency even if user seeder wasn't run
+        }
 
-        Dentist::create([
-            'dentist_fname' => 'Jane',
-            'dentist_mname' => 'Baba',
-            'dentist_lname' => 'Smith',
-            'specialization' => 2, // Assuming 2 is for Orthodontics
-            'contact_number' => '098-765-4321',
-            'email' => 'jane.smith@example.com',
-        ]);
+        // Create/ensure dentist profile
+        DB::table('dentist_profiles')->updateOrInsert(
+            ['dentist_id' => $dentist->id],
+            [
+                'employment_status' => 'Active',
+                'hire_date' => now()->toDateString(),
+                'archived_at' => null,
+                'deleted_at' => null,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
 
-        // Add more dentists as needed
+        // Attach one or two specializations for demo
+        $specIds = DB::table('specializations')
+            ->whereIn('name', ['General Dentistry', 'Orthodontics'])
+            ->pluck('id')
+            ->all();
+
+        foreach ($specIds as $sid) {
+            DB::table('dentist_specialization')->updateOrInsert(
+                ['dentist_id' => $dentist->id, 'specialization_id' => $sid],
+                ['created_at' => now(), 'updated_at' => now()]
+            );
+        }
     }
 }

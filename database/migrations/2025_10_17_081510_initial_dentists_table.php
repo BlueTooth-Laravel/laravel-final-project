@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,21 +12,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('dentists', function (Blueprint $table) {
-            $table->id('dentist_id');
-            $table->string('dentist_fname');
-            $table->string('dentist_mname')->nullable();
-            $table->string('dentist_lname');
-            $table->integer('specialization');
-            $table->string('contact_number')->unique();
-            $table->string('email')->unique();
+        // store specialization types for dentists
+        Schema::create('specializations', function (Blueprint $table) {
+            $table->id(); // specialization_id
+            $table->string('name')->unique(); // e.g., Orthodontics, Periodontics
             $table->timestamps();
         });
 
-        Schema::create('specialization', function (Blueprint $table) {
-            $table->id('specialization_id');
-            $table->string('specialization_name');
+        // pivot table to link dentists with their specializations
+        Schema::create('dentist_specialization', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('dentist_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('specialization_id')->constrained('specializations')->restrictOnDelete();
             $table->timestamps();
+
+            $table->unique(['dentist_id', 'specialization_id']); // Prevent duplicate pairs
         });
     }
 
@@ -34,7 +35,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('dentists');
-        Schema::dropIfExists('specialization');
+        Schema::dropIfExists('dentist_specialization');
+        Schema::dropIfExists('specializations');
     }
 };

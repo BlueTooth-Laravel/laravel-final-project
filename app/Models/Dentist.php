@@ -11,11 +11,11 @@ class Dentist extends Model
     protected $primaryKey = 'dentist_id';
 
     protected $fillable = [
-        'dentist_fname',
-        'dentist_mname',
-        'dentist_lname',
         'specialization',
-        'contact_number',
-        'email',
     ];
+
+        public function specialization()
+    {
+        return $this->belongsTo(Specialization::class, 'specialization_id', 'specialization_id');
+    }
 }
