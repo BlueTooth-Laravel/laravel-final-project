@@ -6,20 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Specialization extends Model
 {
-    // If your primary key is 'specialization_id', specify it
-    protected $primaryKey = 'specialization_id';
-
-    // Table name (optional if following Laravel conventions: plural, i.e., 'specializations')
-    protected $table = 'specializations';
-
-    // Fillable fields for mass assignment
+    // Using Laravel defaults: primary key 'id', table 'specializations'
     protected $fillable = [
-        'specialization_name',
+        'name',
     ];
 
-    // One-to-many relationship: One specialization has many dentists
+    // Many-to-many relationship: specialization belongs to many users (dentists)
     public function dentists()
     {
-        return $this->belongsToMany(Dentist::class, 'dentist_specialization', 'specialization_id', 'dentist_id');
+        return $this->belongsToMany(User::class, 'dentist_specialization', 'specialization_id', 'dentist_id');
     }
 }

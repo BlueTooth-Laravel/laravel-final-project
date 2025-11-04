@@ -4,9 +4,9 @@ import { ThemeToggle } from "../components/ui/theme-toggle";
 
 type Patient = {
   patient_id: number;
-  patient_fname: string;
-  patient_mname: string;
-  patient_lname: string;
+  fname: string;
+  mname: string;
+  lname: string;
   date_of_birth: string;
   gender: string;
   contact_number: string;
@@ -20,10 +20,10 @@ interface PatientsTableProps {
 
 export default function PatientsTable({ patients }: PatientsTableProps) {
   const columns = [
-    { accessorKey: "patient_id", header: "ID" },
-    { accessorKey: "patient_fname", header: "First Name" },
-    { accessorKey: "patient_mname", header: "Middle Name" },
-    { accessorKey: "patient_lname", header: "Last Name" },
+    { accessorKey: "id", header: "ID" },
+    { accessorKey: "fname", header: "First Name" },
+    { accessorKey: "mname", header: "Middle Name" },
+    { accessorKey: "lname", header: "Last Name" },
     { accessorKey: "date_of_birth", header: "Date of Birth" },
     { accessorKey: "gender", header: "Gender" },
     { accessorKey: "contact_number", header: "Contact Number" },

@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
@@ -72,6 +74,33 @@ class User extends Authenticatable
     public function getNameAttribute(): string
     {
         $parts = array_filter([$this->fname ?? null, $this->mname ?? null, $this->lname ?? null]);
+
         return implode(' ', $parts);
+    }
+
+    /**
+     * Role relation.
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * Specializations relation for dentists.
+     */
+    public function specializations(): BelongsToMany
+    {
+        return $this->belongsToMany(Specialization::class, 'dentist_specialization', 'dentist_id', 'specialization_id');
+    }
+
+    /**
+     * Scope to only dentists (users whose role name = 'Dentist').
+     */
+    public function scopeDentists($query)
+    {
+        return $query->whereHas('role', function ($q) {
+            $q->where('name', 'Dentist');
+        });
     }
 }
