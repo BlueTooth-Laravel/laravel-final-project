@@ -25,6 +25,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'mname',
         'lname',
         'gender',
+        'avatar_path',
         'role_id',
         'contact_number',
         'email',
@@ -79,22 +80,6 @@ class User extends Authenticatable implements MustVerifyEmail
         $parts = array_filter([$this->fname ?? null, $this->mname ?? null, $this->lname ?? null]);
 
         return implode(' ', $parts);
-    }
-
-    /**
-     * Role relation.
-     */
-    public function role(): BelongsTo
-    {
-        return $this->belongsTo(Role::class, 'role_id');
-    }
-
-    /**
-     * Specializations relation for dentists.
-     */
-    public function specializations(): BelongsToMany
-    {
-        return $this->belongsToMany(Specialization::class, 'dentist_specialization', 'dentist_id', 'specialization_id');
     }
 
     /**

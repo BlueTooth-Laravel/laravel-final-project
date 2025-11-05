@@ -3,14 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
+use App\Models\Specialization;
+use App\Services\DentistService;
+use App\Http\Requests\StoreDentistRequest;
 use Inertia\Inertia;
 
 class DentistController extends Controller
 {
+    protected $dentistService;
+
+    public function __construct(DentistService $dentistService)
+    {
+        $this->dentistService = $dentistService;
+    }
+
     /**
      * Display a listing of dentists.
      */
@@ -19,7 +25,22 @@ class DentistController extends Controller
         // Get all users with dentist role (role_id = 2)
         $dentists = User::where('role_id', 2)
             ->with(['dentistProfile', 'specializations'])
-            ->get();
+            ->get()
+            ->map(function ($dentist) {
+                $profile = $dentist->dentistProfile;
+
+                return [
+                    'dentist_id' => $dentist->id,
+                    'fname' => $dentist->fname,
+                    'mname' => $dentist->mname,
+                    'lname' => $dentist->lname,
+                    'specialization' => $dentist->specializations->pluck('name')->join(', '),
+                    'contact_number' => $dentist->contact_number,
+                    'email' => $dentist->email,
+                    'employment_status' => $profile?->employment_status,
+                    'hire_date' => $profile?->hire_date?->format('Y-m-d'),
+                ];
+            });
 
         return Inertia::render('DentistsTable', [
             'dentists' => $dentists,
@@ -27,92 +48,48 @@ class DentistController extends Controller
     }
 
     /**
+     * Show the form for creating a new dentist.
+     * Only admins can access this.
+     */
+    public function create()
+    {
+        // Get all available specializations
+        $specializations = Specialization::all()->map(function ($spec) {
+            return [
+                'id' => $spec->id,
+                'name' => $spec->name,
+            ];
+        });
+
+        return Inertia::render('RegisterDentist', [
+            'specializations' => $specializations,
+        ]);
+    }
+
+    /**
      * Store a newly created dentist.
      * Only admins can create dentists.
      */
-    public function store(Request $request)
+    public function store(StoreDentistRequest $request)
     {
-        // Validate the incoming request
-        $validated = $request->validate([
-            'fname' => 'required|string|max:255',
-            'mname' => 'nullable|string|max:255',
-            'lname' => 'required|string|max:255',
-            'gender' => 'required|string|in:Male,Female,Other',
-            'contact_number' => 'nullable|string|max:20|unique:users,contact_number',
-            'email' => 'required|string|email|max:255|unique:users,email',
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'specialization_ids' => 'nullable|array',
-            'specialization_ids.*' => 'exists:specializations,id',
-            'employment_status' => 'nullable|string|in:Active,Un-hire',
-            'hire_date' => 'nullable|date',
-        ]);
-
-        DB::beginTransaction();
-
         try {
-            // Create the dentist user with role_id = 2 (Dentist)
-            $dentist = User::create([
-                'fname' => $validated['fname'],
-                'mname' => $validated['mname'] ?? null,
-                'lname' => $validated['lname'],
-                'gender' => $validated['gender'],
-                'role_id' => 2, // Dentist role
-                'contact_number' => $validated['contact_number'] ?? null,
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'must_change_password' => true, // Force password change on first login
-                'email_verified_at' => null,
-            ]);
+            // Get validated data from the Form Request
+            $validated = $request->validated();
 
-            // Create dentist profile
-            DB::table('dentist_profiles')->insert([
-                'dentist_id' => $dentist->id,
-                'employment_status' => $validated['employment_status'] ?? 'Active',
-                'hire_date' => $validated['hire_date'] ?? now()->toDateString(),
-                'archived_at' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Attach specializations if provided
-            if (!empty($validated['specialization_ids'])) {
-                foreach ($validated['specialization_ids'] as $specializationId) {
-                    DB::table('dentist_specialization')->insert([
-                        'dentist_id' => $dentist->id,
-                        'specialization_id' => $specializationId,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
+            // Use the service to create the dentist
+            $dentist = $this->dentistService->createDentist($validated);
 
             // Log admin activity
-            DB::table('admin_audit')->insert([
-                'admin_id' => $request->user()->id,
-                'activityTitle' => 'Dentist Created',
-                'moduleType' => 'user-management',
-                'message' => "Admin created a new dentist account for {$dentist->name}",
-                'targetType' => 'dentist',
-                'targetId' => $dentist->id,
-                'oldValue' => null,
-                'newValue' => json_encode([
-                    'email' => $dentist->email,
-                    'name' => $dentist->name,
-                    'contact_number' => $dentist->contact_number,
-                ]),
-                'ipAddress' => $request->ip(),
-                'userAgent' => $request->userAgent(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            DB::commit();
+            /** @var \App\Models\User $user */
+            $user = $request->user();
+            $this->dentistService->logDentistCreated(
+                $user->id,
+                $dentist
+            );
 
             return redirect()->route('dentists.index')
                 ->with('success', 'Dentist registered successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return back()->withErrors([
                 'error' => 'Failed to register dentist: ' . $e->getMessage()
             ])->withInput();
@@ -120,95 +97,51 @@ class DentistController extends Controller
     }
 
     /**
-     * Store a newly created dentist.
-     * Only admins can create dentists.
+     * Display the specified dentist.
+     * 
+     * @param User $dentist
+     * @return \Inertia\Response
      */
-    public function store(Request $request)
+    public function show(User $dentist)
     {
-        // Validate the incoming request
-        $validated = $request->validate([
-            'fname' => 'required|string|max:255',
-            'mname' => 'nullable|string|max:255',
-            'lname' => 'required|string|max:255',
-            'gender' => 'required|string|in:Male,Female,Other',
-            'contact_number' => 'nullable|string|max:20|unique:users,contact_number',
-            'email' => 'required|string|email|max:255|unique:users,email',
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'specialization_ids' => 'nullable|array',
-            'specialization_ids.*' => 'exists:specializations,id',
-            'employment_status' => 'nullable|string|in:Active,Un-hire',
-            'hire_date' => 'nullable|date',
-        ]);
-
-        DB::beginTransaction();
-
-        try {
-            // Create the dentist user with role_id = 2 (Dentist)
-            $dentist = User::create([
-                'fname' => $validated['fname'],
-                'mname' => $validated['mname'] ?? null,
-                'lname' => $validated['lname'],
-                'gender' => $validated['gender'],
-                'role_id' => 2, // Dentist role
-                'contact_number' => $validated['contact_number'] ?? null,
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'must_change_password' => true, // Force password change on first login
-                'email_verified_at' => null,
-            ]);
-
-            // Create dentist profile
-            DB::table('dentist_profiles')->insert([
-                'dentist_id' => $dentist->id,
-                'employment_status' => $validated['employment_status'] ?? 'Active',
-                'hire_date' => $validated['hire_date'] ?? now()->toDateString(),
-                'archived_at' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Attach specializations if provided
-            if (!empty($validated['specialization_ids'])) {
-                foreach ($validated['specialization_ids'] as $specializationId) {
-                    DB::table('dentist_specialization')->insert([
-                        'dentist_id' => $dentist->id,
-                        'specialization_id' => $specializationId,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
-
-            // Log admin activity
-            DB::table('admin_audit')->insert([
-                'admin_id' => $request->user()->id,
-                'activityTitle' => 'Dentist Created',
-                'moduleType' => 'user-management',
-                'message' => "Admin created a new dentist account for {$dentist->name}",
-                'targetType' => 'dentist',
-                'targetId' => $dentist->id,
-                'oldValue' => null,
-                'newValue' => json_encode([
-                    'email' => $dentist->email,
-                    'name' => $dentist->name,
-                    'contact_number' => $dentist->contact_number,
-                ]),
-                'ipAddress' => $request->ip(),
-                'userAgent' => $request->userAgent(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('dentists.index')
-                ->with('success', 'Dentist registered successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return back()->withErrors([
-                'error' => 'Failed to register dentist: ' . $e->getMessage()
-            ])->withInput();
+        // Ensure the user is a dentist
+        if ($dentist->role_id !== 2) {
+            abort(404, 'Dentist not found.');
         }
+
+        // Load relationships
+        $dentist->load(['dentistProfile', 'specializations']);
+
+        // Format the dentist data
+        $dentistData = [
+            'id' => $dentist->id,
+            'fname' => $dentist->fname,
+            'mname' => $dentist->mname,
+            'lname' => $dentist->lname,
+            'full_name' => trim($dentist->fname . ' ' . ($dentist->mname ? $dentist->mname . ' ' : '') . $dentist->lname),
+            'gender' => $dentist->gender,
+            'email' => $dentist->email,
+            'contact_number' => $dentist->contact_number,
+            'avatar_path' => $dentist->avatar_path,
+            'avatar_url' => $dentist->avatar_path ? asset('storage/' . $dentist->avatar_path) : null,
+            'specializations' => $dentist->specializations->map(function ($spec) {
+                return [
+                    'id' => $spec->id,
+                    'name' => $spec->name,
+                ];
+            }),
+            'employment_status' => $dentist->dentistProfile?->employment_status,
+            'hire_date' => $dentist->dentistProfile?->hire_date?->format('Y-m-d'),
+            'hire_date_formatted' => $dentist->dentistProfile?->hire_date?->format('F d, Y'),
+            'archived_at' => $dentist->dentistProfile?->archived_at,
+            'created_at' => $dentist->created_at->format('Y-m-d H:i:s'),
+            'created_at_formatted' => $dentist->created_at->format('F d, Y'),
+            'email_verified_at' => $dentist->email_verified_at,
+            'must_change_password' => $dentist->must_change_password,
+        ];
+
+        return Inertia::render('ViewDentist', [
+            'dentist' => $dentistData,
+        ]);
     }
 }

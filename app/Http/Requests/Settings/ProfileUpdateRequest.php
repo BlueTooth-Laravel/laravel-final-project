@@ -7,6 +7,9 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * @method User|null user($guard = null)
+ */
 class ProfileUpdateRequest extends FormRequest
 {
     /**

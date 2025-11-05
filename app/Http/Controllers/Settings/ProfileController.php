@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\User;
 
 class ProfileController extends Controller
 {
@@ -45,13 +46,15 @@ class ProfileController extends Controller
             unset($data['name']);
         }
 
-        $request->user()->fill($data);
+        /** @var User $user */
+        $user = $request->user();
+        $user->fill($data);
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
 
         return to_route('profile.edit');
     }
@@ -65,6 +68,7 @@ class ProfileController extends Controller
             'password' => ['required', 'current_password'],
         ]);
 
+        /** @var User $user */
         $user = $request->user();
 
         Auth::logout();

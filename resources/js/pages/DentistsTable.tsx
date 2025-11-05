@@ -1,19 +1,7 @@
+import type { Dentist, DentistsTableProps } from '@/types';
+import { Link, router } from '@inertiajs/react';
 import { DataTable } from '../components/ui/data-table';
 import { ThemeToggle } from '../components/ui/theme-toggle';
-
-type Dentist = {
-    dentist_id: number;
-    fname: string;
-    mname: string;
-    lname: string;
-    specialization: string;
-    contact_number: string;
-    email: string;
-};
-
-interface DentistsTableProps {
-    dentists: Dentist[];
-}
 
 export default function DentistsTable({ dentists }: DentistsTableProps) {
     const columns = [
@@ -24,13 +12,35 @@ export default function DentistsTable({ dentists }: DentistsTableProps) {
         { accessorKey: 'specialization', header: 'Specialization' },
         { accessorKey: 'contact_number', header: 'Contact Number' },
         { accessorKey: 'email', header: 'Email' },
+        { accessorKey: 'employment_status', header: 'Employment Status' },
+        { accessorKey: 'hire_date', header: 'Hire Date' },
+        {
+            id: 'actions',
+            header: 'Actions',
+            cell: ({ row }: { row: { original: Dentist } }) => (
+                <Link
+                    href={`/dentists/${row.original.dentist_id}`}
+                    className="text-blue-600 underline hover:text-blue-800"
+                >
+                    View
+                </Link>
+            ),
+        },
     ];
 
     return (
         <div className="p-4">
             <div className="mb-4 flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Dentists</h1>
-                <ThemeToggle />
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => router.visit('/dentists/create')}
+                        type="button"
+                    >
+                        + Register New Dentist
+                    </button>
+                    <ThemeToggle />
+                </div>
             </div>
             <DataTable columns={columns} data={dentists} />
         </div>
