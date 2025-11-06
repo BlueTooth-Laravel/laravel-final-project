@@ -21,7 +21,7 @@ return new class extends Migration
         // users table to store user information (Admin, Dentist)
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('role_id')->constrained('roles')->restrictOnDelete();
+            $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
             $table->string('fname');
             $table->string('mname')->nullable();
             $table->string('lname');
@@ -54,7 +54,7 @@ return new class extends Migration
         // audit table to log admin activities
         Schema::create('admin_audit', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('admin_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('admin_id')->constrained('users')->cascadeOnDelete();
             $table->string('activityTitle'); // "Login Success", "Update Employee", "User created" label
             $table->string('moduleType'); // "auth", "user-management" filter
             $table->text('message'); // Admin updated employee salary

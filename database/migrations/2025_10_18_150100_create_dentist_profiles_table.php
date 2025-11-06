@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('dentist_profiles', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('dentist_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('dentist_id')->constrained('users')->cascadeOnDelete();
             $table->enum('employment_status', ['Active', 'Un-hire'])->default('Active');
             $table->date('hire_date')->nullable();
             $table->timestamp('archived_at')->nullable();

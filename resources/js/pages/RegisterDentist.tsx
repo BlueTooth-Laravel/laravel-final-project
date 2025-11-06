@@ -20,6 +20,62 @@ export default function RegisterDentist({
     });
 
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [phoneError, setPhoneError] = useState<string>('');
+
+    const formatPhoneNumberDisplay = (value: string): string => {
+        // Remove all non-digit characters except +
+        const cleaned = value.replace(/[^\d+]/g, '');
+
+        // Handle +63 prefix
+        let digits = cleaned;
+        if (digits.startsWith('+63')) {
+            digits = '0' + digits.substring(3);
+        }
+
+        // Remove extra leading zeros
+        digits = digits.replace(/^0+/, '0');
+
+        // Limit to 11 digits
+        digits = digits.substring(0, 11);
+
+        // Format: 0111 111 1111
+        if (digits.length > 7) {
+            return `${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7)}`;
+        } else if (digits.length > 4) {
+            return `${digits.substring(0, 4)} ${digits.substring(4)}`;
+        }
+        return digits;
+    };
+
+    const validatePhoneNumber = (value: string): boolean => {
+        if (!value) return true; // Optional field
+
+        // Remove all formatting
+        const cleaned = value.replace(/[^\d+]/g, '');
+
+        // Check if starts with +63 or 0
+        if (!cleaned.startsWith('+63') && !cleaned.startsWith('0')) {
+            setPhoneError('Phone number must start with +63 or 0');
+            return false;
+        }
+
+        // Convert to standard format for length check
+        let digits = cleaned;
+        if (digits.startsWith('+63')) {
+            digits = '0' + digits.substring(3);
+        }
+
+        // Check length (must be 11 digits)
+        if (digits.length !== 11) {
+            setPhoneError(
+                'Phone number must be 11 digits (e.g., 0917 123 4567)',
+            );
+            return false;
+        }
+
+        setPhoneError('');
+        return true;
+    };
 
     const handleInputChange = (
         e: ChangeEvent<
@@ -27,6 +83,18 @@ export default function RegisterDentist({
         >,
     ) => {
         const { name, value } = e.target;
+
+        // Special handling for phone number
+        if (name === 'contact_number') {
+            const formatted = formatPhoneNumberDisplay(value);
+            setFormData((prev) => ({
+                ...prev,
+                [name]: formatted,
+            }));
+            validatePhoneNumber(formatted);
+            return;
+        }
+
         setFormData((prev) => ({
             ...prev,
             [name]: value,
@@ -65,6 +133,14 @@ export default function RegisterDentist({
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
+        // Validate phone number before submission
+        if (
+            formData.contact_number &&
+            !validatePhoneNumber(formData.contact_number)
+        ) {
+            return;
+        }
+
         const submitData = new FormData();
         submitData.append('fname', formData.fname);
         submitData.append('mname', formData.mname);
@@ -72,7 +148,6 @@ export default function RegisterDentist({
         submitData.append('gender', formData.gender);
         submitData.append('contact_number', formData.contact_number);
         submitData.append('email', formData.email);
-        submitData.append('employment_status', formData.employment_status);
         submitData.append('hire_date', formData.hire_date);
 
         if (formData.avatar) {
@@ -201,11 +276,18 @@ export default function RegisterDentist({
                             name="contact_number"
                             value={formData.contact_number}
                             onChange={handleInputChange}
-                            placeholder="+1234567890"
+                            placeholder="0917 123 4567 or +63 917 123 4567"
+                            maxLength={16}
                         />
-                        {errors.contact_number && (
-                            <span>{errors.contact_number}</span>
+                        {(errors.contact_number || phoneError) && (
+                            <span style={{ color: 'red' }}>
+                                {errors.contact_number || phoneError}
+                            </span>
                         )}
+                        <small>
+                            Accepts: +63 prefix, 0 prefix, or plain numbers.
+                            Will be formatted as: 0111 111 1111
+                        </small>
                     </div>
                 </fieldset>
 
@@ -281,24 +363,6 @@ export default function RegisterDentist({
                     <legend>Employment Information</legend>
 
                     <div>
-                        <label htmlFor="employment_status">
-                            Employment Status
-                        </label>
-                        <select
-                            id="employment_status"
-                            name="employment_status"
-                            value={formData.employment_status}
-                            onChange={handleInputChange}
-                        >
-                            <option value="Active">Active</option>
-                            <option value="Un-hire">Un-hire</option>
-                        </select>
-                        {errors.employment_status && (
-                            <span>{errors.employment_status}</span>
-                        )}
-                    </div>
-
-                    <div>
                         <label htmlFor="hire_date">Hire Date</label>
                         <input
                             type="date"
@@ -308,6 +372,9 @@ export default function RegisterDentist({
                             onChange={handleInputChange}
                         />
                         {errors.hire_date && <span>{errors.hire_date}</span>}
+                        <small>
+                            Employment status will be set to "Active" by default
+                        </small>
                     </div>
                 </fieldset>
 

@@ -21,7 +21,7 @@ return new class extends Migration
         // pivot table to link dentists with their specializations
         Schema::create('dentist_specialization', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('dentist_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('dentist_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('specialization_id')->constrained('specializations')->restrictOnDelete();
             $table->timestamps();
 
