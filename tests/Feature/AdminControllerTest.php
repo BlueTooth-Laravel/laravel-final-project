@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\SendDentistCredentials;
 use App\Mail\DentistCredentials;
 use App\Models\Role;
 use App\Models\Specialization;
@@ -8,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -133,7 +135,7 @@ test('admin can access dentist registration form', function () {
 });
 
 test('admin can create a new dentist', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $dentistData = [
@@ -183,9 +185,12 @@ test('admin can create a new dentist', function () {
         'targetId' => $dentist->id,
     ]);
 
-    // Verify email was sent
-    Mail::assertSent(DentistCredentials::class, function ($mail) use ($dentist) {
-        return $mail->hasTo($dentist->email);
+    // Verify job was dispatched to send credentials email
+    Queue::assertPushed(SendDentistCredentials::class, function ($job) use ($dentist) {
+        return $job->dentistEmail === $dentist->email &&
+            $job->dentistFullName === 'Jane Marie Smith' &&
+            strlen($job->passwordDigits) === 4 &&
+            is_numeric($job->passwordDigits);
     });
 });
 
@@ -225,7 +230,7 @@ test('dentist email must be unique', function () {
 });
 
 test('dentist creation with multiple specializations', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $dentistData = [
@@ -257,7 +262,7 @@ test('dentist creation with multiple specializations', function () {
 });
 
 test('dentist creation sets must_change_password flag', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $dentistData = [
@@ -277,7 +282,7 @@ test('dentist creation sets must_change_password flag', function () {
 });
 
 test('dentist without specializations can be created', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $dentistData = [
@@ -300,7 +305,7 @@ test('dentist without specializations can be created', function () {
 
 test('admin can create dentist with avatar', function () {
     Storage::fake('public');
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     // Create a simple file without using image() method
@@ -329,7 +334,7 @@ test('admin can create dentist with avatar', function () {
 });
 
 test('dentist avatar must be valid image file', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $invalidFile = UploadedFile::fake()->create('document.pdf', 1000);
@@ -348,7 +353,7 @@ test('dentist avatar must be valid image file', function () {
 });
 
 test('dentist avatar file size must not exceed 2MB', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $largeFile = UploadedFile::fake()->create('large-avatar.jpg', 3000, 'image/jpeg'); // 3MB
@@ -367,7 +372,7 @@ test('dentist avatar file size must not exceed 2MB', function () {
 });
 
 test('dentist can be created without avatar', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $dentistData = [
@@ -389,7 +394,7 @@ test('dentist can be created without avatar', function () {
 });
 
 test('password is auto-generated with correct format', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $dentistData = [
@@ -405,16 +410,16 @@ test('password is auto-generated with correct format', function () {
 
     expect($dentist)->not->toBeNull();
 
-    // The password should be hashed, but we can verify the email contains the digits
-    Mail::assertSent(DentistCredentials::class, function ($mail) use ($dentist) {
-        return $mail->hasTo($dentist->email) &&
-            strlen($mail->passwordDigits) === 4 &&
-            is_numeric($mail->passwordDigits);
+    // Verify the job was dispatched with correct password digits format
+    Queue::assertPushed(SendDentistCredentials::class, function ($job) use ($dentist) {
+        return $job->dentistEmail === $dentist->email &&
+            strlen($job->passwordDigits) === 4 &&
+            is_numeric($job->passwordDigits);
     });
 });
 
 test('password generation handles compound last names correctly', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $dentistData = [
@@ -430,15 +435,15 @@ test('password generation handles compound last names correctly', function () {
 
     expect($dentist)->not->toBeNull();
 
-    // Password should be generated as: delacruz_{4digits}
-    // We can't check the exact password (it's hashed), but we can verify email was sent
-    Mail::assertSent(DentistCredentials::class, function ($mail) use ($dentist) {
-        return $mail->hasTo($dentist->email);
+    // Verify the job was dispatched
+    Queue::assertPushed(SendDentistCredentials::class, function ($job) use ($dentist) {
+        return $job->dentistEmail === $dentist->email &&
+            $job->dentistFullName === 'Maria dela Cruz';
     });
 });
 
 test('email contains only password digits not full password', function () {
-    Mail::fake();
+    Queue::fake();
     $this->actingAs($this->admin);
 
     $dentistData = [
@@ -452,13 +457,68 @@ test('email contains only password digits not full password', function () {
 
     $dentist = User::where('email', 'security@example.com')->first();
 
-    // Verify email was sent with only the 4 digits
+    // Verify job was dispatched with only the 4 digits (not the full password)
+    Queue::assertPushed(SendDentistCredentials::class, function ($job) use ($dentist) {
+        return $job->dentistEmail === $dentist->email &&
+            strlen($job->passwordDigits) === 4 &&
+            is_numeric($job->passwordDigits) &&
+            ! str_contains($job->passwordDigits, 'test'); // Should not contain lastname
+    });
+});
+
+test('credentials email is queued not sent immediately', function () {
+    Queue::fake();
+    $this->actingAs($this->admin);
+
+    $dentistData = [
+        'fname' => 'Queue',
+        'lname' => 'Test',
+        'email' => 'queue@example.com',
+        'gender' => 'Male',
+    ];
+
+    $response = $this->post('/admin/dentists', $dentistData);
+
+    $dentist = User::where('email', 'queue@example.com')->first();
+
+    // Assert that the job was pushed to the queue (not executed immediately)
+    Queue::assertPushed(SendDentistCredentials::class, 1);
+
+    // Verify the job has the correct data
+    Queue::assertPushed(SendDentistCredentials::class, function ($job) use ($dentist) {
+        return $job->dentistEmail === 'queue@example.com' &&
+            $job->dentistFullName === 'Queue Test' &&
+            strlen($job->passwordDigits) === 4 &&
+            is_numeric($job->passwordDigits);
+    });
+});
+
+test('queued job sends credentials email when processed', function () {
+    Mail::fake();
+    $this->actingAs($this->admin);
+
+    $dentistData = [
+        'fname' => 'Job',
+        'lname' => 'Processing',
+        'email' => 'job@example.com',
+        'gender' => 'Female',
+    ];
+
+    $response = $this->post('/admin/dentists', $dentistData);
+
+    $dentist = User::where('email', 'job@example.com')->first();
+
+    // Manually execute the job to simulate queue processing
+    $job = new SendDentistCredentials(
+        $dentist->email,
+        'Job Processing',
+        '1234' // Sample digits
+    );
+    $job->handle();
+
+    // Verify the email was sent when job was processed
     Mail::assertSent(DentistCredentials::class, function ($mail) use ($dentist) {
-        // Should have the digits but NOT the full password
-        return $mail->hasTo($dentist->email) &&
-            strlen($mail->passwordDigits) === 4 &&
-            is_numeric($mail->passwordDigits) &&
-            ! str_contains($mail->passwordDigits, 'test'); // Should not contain lastname
+        return $mail->hasTo($dentist->email);
     });
 });
 

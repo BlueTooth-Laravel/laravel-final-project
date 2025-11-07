@@ -113,3 +113,23 @@ export interface DentistProfileProps {
 export interface ChangePasswordProps {
     mustChangePassword: boolean;
 }
+
+export interface AdminAuditLog {
+    id: number;
+    admin_name: string;
+    admin_email: string;
+    activityTitle: string;
+    moduleType: string;
+    message: string;
+    targetType: string | null;
+    targetId: string | null;
+    oldValue: Record<string, unknown> | null;
+    newValue: Record<string, unknown> | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+    created_at: string;
+}
+
+export interface AdminAuditLogsProps {
+    auditLogs: AdminAuditLog[];
+}
