@@ -35,6 +35,7 @@ Route::middleware(['auth', 'verified', 'password.changed', 'role:1'])->prefix('a
     Route::get('/dentists/create', [AdminController::class, 'createDentist'])->name('dentists.create');
     Route::post('/dentists', [AdminController::class, 'storeDentist'])->name('dentists.store');
     Route::get('/dentists/{dentist}', [AdminController::class, 'showDentist'])->name('dentists.show');
+    Route::get('/audit-logs', [AdminController::class, 'indexAuditLogs'])->name('audit.logs');
 });
 
 // Dentist-only routes
@@ -42,5 +43,5 @@ Route::middleware(['auth', 'verified', 'password.changed', 'role:2'])->prefix('d
     Route::get('/profile', [DentistController::class, 'profile'])->name('profile');
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';

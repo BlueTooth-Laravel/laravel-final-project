@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDentistRequest;
 use App\Http\Resources\DentistProfileResource;
+use App\Models\AdminAudit;
 use App\Models\Specialization;
 use App\Models\User;
 use App\Services\DentistService;
@@ -113,6 +114,39 @@ class AdminController extends Controller
         return Inertia::render('dentist/profile', [
             'dentist' => (new DentistProfileResource($dentist, includeAdminFields: true))->resolve(),
             'viewMode' => 'admin',
+        ]);
+    }
+
+    /**
+     * Display the admin audit logs.
+     * Only admins can access this.
+     */
+    public function indexAuditLogs()
+    {
+        // Get all audit logs with admin information, ordered by latest first
+        $auditLogs = AdminAudit::with('admin:id,fname,mname,lname,email')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($log) {
+                return [
+                    'id' => $log->id,
+                    'admin_name' => $log->admin ? trim($log->admin->fname . ' ' . ($log->admin->mname ?? '') . ' ' . $log->admin->lname) : 'N/A',
+                    'admin_email' => $log->admin?->email ?? 'N/A',
+                    'activityTitle' => $log->activityTitle,
+                    'moduleType' => $log->moduleType,
+                    'message' => $log->message,
+                    'targetType' => $log->targetType,
+                    'targetId' => $log->targetId,
+                    'oldValue' => $log->oldValue,
+                    'newValue' => $log->newValue,
+                    'ipAddress' => $log->ipAddress,
+                    'userAgent' => $log->userAgent,
+                    'created_at' => $log->created_at?->format('Y-m-d H:i:s'),
+                ];
+            });
+
+        return Inertia::render('AdminAuditLogs', [
+            'auditLogs' => $auditLogs,
         ]);
     }
 }
