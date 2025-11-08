@@ -11,8 +11,9 @@ import {
   SortingState,
   ColumnFiltersState,
   VisibilityState,
+  GlobalFilterTableState,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, ChevronDown, MoreHorizontal, Search } from "lucide-react";
 import { Button } from "./button";
 import { Checkbox } from "./checkbox";
 import {
@@ -43,6 +44,7 @@ interface DataTableProps<TData> {
 export function DataTable<TData>({ columns, data, filterKey = "email" }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = React.useState("");
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
@@ -51,12 +53,22 @@ export function DataTable<TData>({ columns, data, filterKey = "email" }: DataTab
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    globalFilterFn: (row, columnId, filterValue) => {
+      const searchValue = filterValue.toLowerCase();
+
+      // Search through all column values
+      return Object.values(row.original as object).some((value) => {
+        if (value == null) return false;
+        return String(value).toLowerCase().includes(searchValue);
+      });
+    },
     initialState: {
       pagination: {
         pageSize: 10,
@@ -65,6 +77,7 @@ export function DataTable<TData>({ columns, data, filterKey = "email" }: DataTab
     state: {
       sorting,
       columnFilters,
+      globalFilter,
       columnVisibility,
       rowSelection,
     },
@@ -73,14 +86,15 @@ export function DataTable<TData>({ columns, data, filterKey = "email" }: DataTab
   return (
     <div className="w-full">
       <div className="flex items-center py-4">
-        <Input
-          placeholder={`Filter ${filterKey}s...`}
-          value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn(filterKey)?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search"
+            value={globalFilter ?? ""}
+            onChange={(event) => setGlobalFilter(event.target.value)}
+            className="pl-8"
+          />
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
@@ -92,6 +106,11 @@ export function DataTable<TData>({ columns, data, filterKey = "email" }: DataTab
               .getAllColumns()
               .filter((column) => column.getCanHide())
               .map((column) => {
+                const header = column.columnDef.header;
+                const displayName = typeof header === 'string'
+                  ? header
+                  : column.id.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+
                 return (
                   <DropdownMenuCheckboxItem
                     key={column.id}
@@ -101,7 +120,7 @@ export function DataTable<TData>({ columns, data, filterKey = "email" }: DataTab
                       column.toggleVisibility(!!value)
                     }
                   >
-                    {column.id}
+                    {displayName}
                   </DropdownMenuCheckboxItem>
                 );
               })}

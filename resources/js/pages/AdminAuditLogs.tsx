@@ -123,7 +123,6 @@ export default function AdminAuditLogs({ auditLogs }: AdminAuditLogsProps) {
                         <DataTable
                             columns={columns}
                             data={auditLogs}
-                            filterKey="admin_email"
                         />
                     </div>
                 </div>
