@@ -303,6 +303,3 @@ Summary of overlaps with the existing instructions in this document:
 
 - The file already included a concise "Frontend structure (resources/js/)" section and guidance to keep business logic in services and use `resources/js/types/` for types — the new content expands these principles with concrete UI/UX, animation and tooling standards rather than replacing them.
 - There is no modification of existing text; the new section is appended and explicitly complements existing guidance (adds design patterns, GSAP best practices, animation/accessibility standards, and UX principles).
-
-No existing instructions were altered; this addition is intentionally additive and references the same directories and conventions already described earlier to avoid contradiction.
-
