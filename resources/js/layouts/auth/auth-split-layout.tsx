@@ -1,4 +1,5 @@
 import AppLogoIcon from '@/components/app-logo-icon';
+import ToothCartoonModel from '@/components/tooth-cartoon-model';
 import { home } from '@/routes';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
@@ -27,18 +28,9 @@ export default function AuthSplitLayout({
                     <AppLogoIcon className="mr-2 size-8 fill-current text-white" />
                     {name}
                 </Link>
-                {quote && (
-                    <div className="relative z-20 mt-auto">
-                        <blockquote className="space-y-2">
-                            <p className="text-lg">
-                                &ldquo;{quote.message}&rdquo;
-                            </p>
-                            <footer className="text-sm text-neutral-300">
-                                {quote.author}
-                            </footer>
-                        </blockquote>
-                    </div>
-                )}
+                <div className="relative z-20 flex flex-1 items-end justify-center">
+                    <ToothCartoonModel />
+                </div>
             </div>
             <div className="w-full lg:p-8">
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
