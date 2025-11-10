@@ -31,8 +31,8 @@ export function ThemeToggle() {
     >
       <span
         className={`absolute top-1 left-1 flex items-center justify-center w-5 h-5 rounded-full transition-transform duration-200 ${isDarkMode
-            ? 'translate-x-5 bg-brand-light text-brand-dark'
-            : 'translate-x-0 bg-brand-dark text-brand-light'
+          ? 'translate-x-5 bg-brand-dark text-brand-light'
+          : 'translate-x-0 bg-brand-light text-brand-dark'
           }`}
       >
         {isDarkMode ? <Moon size={16} /> : <Sun size={16} />}

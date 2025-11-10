@@ -107,7 +107,7 @@ export default function DentistsTable({ dentists }: DentistsTableProps) {
                         Register New Dentist
                     </Button>
                 </div>
-                <div className="relative flex-1 overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
+                <div className="relative flex-1 overflow-hidden rounded-xl border border-brand-dark/20 bg-card shadow-[0_22px_48px_-30px_rgba(38,41,47,0.6)] transition-shadow dark:border-brand-light/20 dark:bg-card/60 dark:shadow-[0_18px_42px_-28px_rgba(8,9,12,0.78)]">
                     <div className="h-full overflow-auto p-4">
                         <DataTable columns={columns} data={dentists} />
                     </div>

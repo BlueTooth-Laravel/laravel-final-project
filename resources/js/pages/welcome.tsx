@@ -10,6 +10,24 @@ export default function Welcome() {
     const [parallaxProgress, setParallaxProgress] = useState(0);
 
     useEffect(() => {
+        document.documentElement.style.scrollbarWidth = 'none';
+        (document.documentElement.style as any).msOverflowStyle = 'none';
+        const style = document.createElement('style');
+        style.textContent = `
+            html::-webkit-scrollbar {
+                display: none;
+            }
+        `;
+        document.head.appendChild(style);
+
+        return () => {
+            document.documentElement.style.scrollbarWidth = '';
+            (document.documentElement.style as any).msOverflowStyle = '';
+            document.head.removeChild(style);
+        };
+    }, []);
+
+    useEffect(() => {
         if (typeof window === 'undefined') {
             return;
         }

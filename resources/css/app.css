@@ -74,7 +74,7 @@
     --card-foreground: #26292f;
     --popover: #ffffff;
     --popover-foreground: #26292f;
-    --primary: #2c85af;
+    --primary: #26292f;
     --primary-foreground: #f6f6f7;
     --secondary: #e8e8e9;
     --secondary-foreground: #26292f;
@@ -95,12 +95,17 @@
     --radius: 0.625rem;
     --sidebar: #f6f6f7;
     --sidebar-foreground: #26292f;
-    --sidebar-primary: #2c85af;
+    --sidebar-primary: #26292f;
     --sidebar-primary-foreground: #f6f6f7;
     --sidebar-accent: #e8e8e9;
     --sidebar-accent-foreground: #26292f;
     --sidebar-border: #d0d2d6;
     --sidebar-ring: #3a9fcb;
+
+    --scrollbar-track: rgba(38, 41, 47, 0.08);
+    --scrollbar-thumb: #26292f;
+    --scrollbar-thumb-hover: #26292f;
+    --scrollbar-thumb-active: #26292f;
 }
 
 .dark {
@@ -136,6 +141,11 @@
     --sidebar-accent-foreground: #f6f6f7;
     --sidebar-border: #3a3f46;
     --sidebar-ring: #3a9fcb;
+
+    --scrollbar-track: rgba(246, 246, 247, 0.08);
+    --scrollbar-thumb: #3a9fcb;
+    --scrollbar-thumb-hover: #2c85af;
+    --scrollbar-thumb-active: #1e6482;
 }
 
 @layer base {
@@ -145,5 +155,58 @@
 
     body {
         @apply bg-background text-foreground;
+    }
+}
+
+html.animated-scrollbar {
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scrollbar-width: thin;
+}
+
+html.animated-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+html.animated-scrollbar::-webkit-scrollbar-button {
+    display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+}
+
+html.animated-scrollbar::-webkit-scrollbar-button:single-button {
+    display: none !important;
+}
+
+html.animated-scrollbar::-webkit-scrollbar-button:start:decrement,
+html.animated-scrollbar::-webkit-scrollbar-button:end:increment {
+    display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+}
+
+html.animated-scrollbar::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 9999px;
+}
+
+html.animated-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+html.animated-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+html.animated-scrollbar::-webkit-scrollbar-thumb:active {
+    background: var(--scrollbar-thumb-active);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.animated-scrollbar::-webkit-scrollbar-thumb {
+        animation: none;
     }
 }
