@@ -26,13 +26,13 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-      className={`relative h-7 w-12 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${isDarkMode ? 'bg-zinc-900' : 'bg-zinc-100'
+      className={`relative h-7 w-12 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${isDarkMode ? 'bg-brand-light/20' : 'bg-brand-dark/10'
         }`}
     >
       <span
         className={`absolute top-1 left-1 flex items-center justify-center w-5 h-5 rounded-full transition-transform duration-200 ${isDarkMode
-            ? 'translate-x-5 bg-black'
-            : 'translate-x-0 bg-white'
+            ? 'translate-x-5 bg-brand-light text-brand-dark'
+            : 'translate-x-0 bg-brand-dark text-brand-light'
           }`}
       >
         {isDarkMode ? <Moon size={16} /> : <Sun size={16} />}
