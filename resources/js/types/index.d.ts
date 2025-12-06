@@ -133,3 +133,15 @@ export interface AdminAuditLog {
 export interface AdminAuditLogsProps {
     auditLogs: AdminAuditLog[];
 }
+
+export interface AddPatientProps {
+    errors?: Record<string, string>;
+}
+
+export interface AddSpecializationProps {
+    errors?: Record<string, string>;
+}
+
+export interface AddTreatmentTypeProps {
+    errors?: Record<string, string>;
+}

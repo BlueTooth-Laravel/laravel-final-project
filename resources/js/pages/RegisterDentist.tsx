@@ -1,3 +1,10 @@
+import {
+    genderSchema,
+    nameSchema,
+    optionalNameSchema,
+    phoneNumberSchema,
+    requiredEmailSchema,
+} from '@/lib/validations';
 import type { RegisterDentistProps } from '@/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from '@inertiajs/react';
@@ -5,43 +12,13 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-const phoneRegex = /^(\+63|0)\d{10}$/;
-
 const dentistFormSchema = z.object({
-    fname: z
-        .string()
-        .min(1, 'First name is required')
-        .max(255, 'First name must not exceed 255 characters'),
-    mname: z
-        .string()
-        .max(255, 'Middle name must not exceed 255 characters')
-        .optional(),
-    lname: z
-        .string()
-        .min(1, 'Last name is required')
-        .max(255, 'Last name must not exceed 255 characters'),
-    gender: z.enum(['Male', 'Female', 'Other'], {
-        message: 'Gender is required',
-    }),
-    contact_number: z
-        .string()
-        .optional()
-        .refine(
-            (val) => {
-                if (!val || val.trim() === '') return true;
-                const cleaned = val.replace(/[\s-]/g, '');
-                return phoneRegex.test(cleaned);
-            },
-            {
-                message:
-                    'Phone number must be 11 digits starting with +63 or 0 (e.g., 0917 123 4567)',
-            },
-        ),
-    email: z
-        .string()
-        .min(1, 'Email is required')
-        .email('Invalid email address')
-        .max(255, 'Email must not exceed 255 characters'),
+    fname: nameSchema('First name'),
+    mname: optionalNameSchema('Middle name'),
+    lname: nameSchema('Last name'),
+    gender: genderSchema,
+    contact_number: phoneNumberSchema,
+    email: requiredEmailSchema,
     avatar: z
         .instanceof(File)
         .optional()

@@ -5,6 +5,8 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Auth\ChangePasswordController;
 use App\Http\Controllers\DentistController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\SpecializationController;
+use App\Http\Controllers\TreatmentTypeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -27,6 +29,8 @@ Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
     Route::get('/patients', [PatientController::class, 'index'])->name('patients.index');
+    Route::get('/patients/create', [PatientController::class, 'create'])->name('patients.create');
+    Route::post('/patients', [PatientController::class, 'store'])->name('patients.store');
 });
 
 // Admin-only routes for dentist management
@@ -36,6 +40,16 @@ Route::middleware(['auth', 'verified', 'password.changed', 'role:1'])->prefix('a
     Route::post('/dentists', [AdminController::class, 'storeDentist'])->name('dentists.store');
     Route::get('/dentists/{dentist}', [AdminController::class, 'showDentist'])->name('dentists.show');
     Route::get('/audit-logs', [AdminController::class, 'indexAuditLogs'])->name('audit.logs');
+
+    // Specializations management
+    Route::get('/specializations', [SpecializationController::class, 'index'])->name('specializations.index');
+    Route::get('/specializations/create', [SpecializationController::class, 'create'])->name('specializations.create');
+    Route::post('/specializations', [SpecializationController::class, 'store'])->name('specializations.store');
+
+    // Treatment types management
+    Route::get('/treatment-types', [TreatmentTypeController::class, 'index'])->name('treatment-types.index');
+    Route::get('/treatment-types/create', [TreatmentTypeController::class, 'create'])->name('treatment-types.create');
+    Route::post('/treatment-types', [TreatmentTypeController::class, 'store'])->name('treatment-types.store');
 });
 
 // Dentist-only routes

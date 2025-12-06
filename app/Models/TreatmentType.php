@@ -8,8 +8,6 @@ class TreatmentType extends Model
 {
     protected $table = 'treatment_types';
 
-    protected $primaryKey = 'treatment_type_id';
-
     protected $fillable = [
         'name',
         'description',
