@@ -41,8 +41,17 @@ class AdminController extends Controller
                 ];
             });
 
+        // Get all available specializations for the dialog
+        $specializations = Specialization::all()->map(function ($spec) {
+            return [
+                'id' => $spec->id,
+                'name' => $spec->name,
+            ];
+        });
+
         return Inertia::render('admin/DentistsTable', [
             'dentists' => $dentists,
+            'specializations' => $specializations,
         ]);
     }
 

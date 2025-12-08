@@ -1,12 +1,23 @@
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
+import { RegisterDentistDialog } from '@/components/RegisterDentistDialog';
 import AppLayout from '@/layouts/app-layout';
 import admin from '@/routes/admin';
 import { dashboard } from '@/routes';
-import { type BreadcrumbItem, type Dentist, type DentistsTableProps } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
-import { UserPlus, Eye } from 'lucide-react';
+import { type BreadcrumbItem, type Dentist } from '@/types';
+import { Head, Link } from '@inertiajs/react';
+import { Eye } from 'lucide-react';
+
+interface Specialization {
+    id: number;
+    name: string;
+}
+
+interface DentistsTableProps {
+    dentists: Dentist[];
+    specializations?: Specialization[];
+    errors?: Record<string, string>;
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -19,7 +30,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function DentistsTable({ dentists }: DentistsTableProps) {
+export default function DentistsTable({ dentists, specializations = [], errors = {} }: DentistsTableProps) {
     const columns = [
         { accessorKey: 'dentist_id', header: 'ID' },
         { accessorKey: 'fname', header: 'First Name' },
@@ -99,13 +110,10 @@ export default function DentistsTable({ dentists }: DentistsTableProps) {
                             Manage dentist profiles and credentials
                         </p>
                     </div>
-                    <Button
-                        onClick={() => router.visit('/admin/dentists/create')}
-                        className="gap-2"
-                    >
-                        <UserPlus className="size-4" />
-                        Register New Dentist
-                    </Button>
+                    <RegisterDentistDialog 
+                        specializations={specializations} 
+                        errors={errors} 
+                    />
                 </div>
                 <div className="relative flex-1 overflow-hidden rounded-xl border border-brand-dark/20 bg-card shadow-[0_22px_48px_-30px_rgba(38,41,47,0.6)] transition-shadow dark:border-brand-light/20 dark:bg-card/60 dark:shadow-[0_18px_42px_-28px_rgba(8,9,12,0.78)]">
                     <div className="h-full overflow-auto p-4">
@@ -116,3 +124,4 @@ export default function DentistsTable({ dentists }: DentistsTableProps) {
         </AppLayout>
     );
 }
+
