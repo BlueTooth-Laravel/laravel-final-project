@@ -63,11 +63,11 @@ const servicesSubItems: ServiceSubItem[] = [
 ];
 
 export function AppSidebar() {
-    const { auth } = usePage<SharedData>().props;
     const page = usePage<SharedData>();
+    const { auth } = page.props;
     const user = auth.user;
 
-    const userRole = (auth.user as { role_id?: number }).role_id;
+    const userRole = auth.user.role_id;
     const isAdmin = userRole === ROLE_ADMIN;
     const isDentist = userRole === ROLE_DENTIST;
 
@@ -170,7 +170,7 @@ export function AppSidebar() {
                 </SidebarGroup>
 
                 {/* Admin-only Management Section */}
-                {isAdmin && (
+                {(isAdmin || isDentist) && (
                     <SidebarGroup className="px-2 py-0">
                         <SidebarGroupLabel>Management</SidebarGroupLabel>
                         <SidebarMenu>
