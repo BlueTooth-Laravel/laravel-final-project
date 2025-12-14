@@ -58,7 +58,15 @@ const patientFormSchema = z.object({
     mname: optionalNameSchema('Middle name'),
     lname: nameSchema('Last name'),
     gender: genderSchema,
-    date_of_birth: z.string().min(1, 'Date of birth is required'),
+    date_of_birth: z.string().min(1, 'Date of birth is required').refine(
+        (val) => {
+            const date = new Date(val);
+            const today = new Date();
+            today.setHours(23, 59, 59, 999);
+            return date <= today;
+        },
+        { message: 'Date of birth cannot be in the future' }
+    ),
     contact_number: phoneNumberSchema,
     email: optionalEmailSchema,
     address: z
@@ -73,7 +81,8 @@ const STEPS = [
     { id: 1, title: 'Personal Info', description: 'Name & gender' },
     { id: 2, title: 'Birth Date', description: 'Date of birth' },
     { id: 3, title: 'Contact', description: 'Email & phone' },
-    { id: 4, title: 'Address', description: 'Location & review' },
+    { id: 4, title: 'Address', description: 'Location' },
+    { id: 5, title: 'Review', description: 'Confirm & save' },
 ];
 
 export function RegisterPatientDialog({
@@ -135,7 +144,7 @@ export function RegisterPatientDialog({
 
     const handleNext = async () => {
         const isValid = await validateCurrentStep();
-        if (isValid && currentStep < 4) {
+        if (isValid && currentStep < 5) {
             setCurrentStep(currentStep + 1);
         }
     };
@@ -333,6 +342,7 @@ export function RegisterPatientDialog({
                                                     onMonthChange={setDobMonth}
                                                     fromYear={1900}
                                                     toYear={new Date().getFullYear()}
+                                                    disabled={(date) => date > new Date()}
                                                     onSelect={(date) => {
                                                         if (date) {
                                                             setValue('date_of_birth', format(date, 'yyyy-MM-dd'), { shouldValidate: true });
@@ -384,7 +394,7 @@ export function RegisterPatientDialog({
                         </div>
                     )}
 
-                    {/* Step 4: Address & Review */}
+                    {/* Step 4: Address */}
                     {currentStep === 4 && (
                         <div className="space-y-4">
                             <Field data-invalid={!!(formErrors.address || errors.address)}>
@@ -398,21 +408,40 @@ export function RegisterPatientDialog({
                                 <FieldError errors={[{ message: formErrors.address?.message || errors.address }]} />
                                 <p className="text-[0.75rem] text-muted-foreground mt-1">Optional - patient's complete address</p>
                             </Field>
+                        </div>
+                    )}
 
-                            {/* Summary Preview */}
-                            <div className="rounded-lg border bg-muted/50 p-4 mt-4">
-                                <h4 className="font-medium mb-2">Registration Summary</h4>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div className="text-muted-foreground">Name:</div>
-                                    <div>{watch('fname')} {watch('mname') || ''} {watch('lname')}</div>
-                                    <div className="text-muted-foreground">Gender:</div>
-                                    <div>{watch('gender') || '-'}</div>
-                                    <div className="text-muted-foreground">Date of Birth:</div>
-                                    <div>{dateOfBirth ? new Date(dateOfBirth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}</div>
-                                    <div className="text-muted-foreground">Email:</div>
-                                    <div>{watch('email') || '-'}</div>
-                                    <div className="text-muted-foreground">Phone:</div>
-                                    <div>{watch('contact_number') || '-'}</div>
+                    {/* Step 5: Review & Confirm */}
+                    {currentStep === 5 && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">Please review the patient details below before registering.</p>
+                            <div className="rounded-lg border bg-muted/50 p-4">
+                                <h4 className="font-medium mb-3">Registration Summary</h4>
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Full Name</span>
+                                        <span className="font-medium">{watch('fname')} {watch('mname') || ''} {watch('lname')}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Gender</span>
+                                        <span className="font-medium">{watch('gender') || '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Date of Birth</span>
+                                        <span className="font-medium">{dateOfBirth ? new Date(dateOfBirth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Email</span>
+                                        <span className="font-medium">{watch('email') || '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Phone</span>
+                                        <span className="font-medium">{watch('contact_number') || '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Address</span>
+                                        <span className="font-medium text-right max-w-[200px]">{watch('address') || '-'}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -431,7 +460,7 @@ export function RegisterPatientDialog({
                             </Button>
                         )}
                         
-                        {currentStep < 4 ? (
+                        {currentStep < 5 ? (
                             <Button
                                 type="button"
                                 onClick={handleNext}

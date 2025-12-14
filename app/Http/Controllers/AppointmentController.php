@@ -198,6 +198,9 @@ class AppointmentController extends Controller
         $treatmentTypes = TreatmentType::where('is_active', true)
             ->get(['id', 'name', 'standard_cost', 'duration_minutes']);
 
+        // Get all teeth for treatment record editing
+        $allTeeth = \App\Models\Tooth::orderBy('id')->get(['id', 'name']);
+
         return Inertia::render('appointments/Show', [
             'appointment' => [
                 'id' => $appointment->id,
@@ -213,7 +216,12 @@ class AppointmentController extends Controller
                         'id' => $record->id,
                         'treatment_type' => $record->treatmentType,
                         'treatment_notes' => $record->treatment_notes,
-                        'files' => $record->files,
+                        'files' => $record->files->map(fn($file) => [
+                            'id' => $file->id,
+                            'file_path' => $file->file_path,
+                            'original_name' => $file->original_name,
+                            'url' => asset('storage/' . $file->file_path),
+                        ]),
                         'teeth' => $record->teeth,
                         'created_at' => $record->created_at?->format('Y-m-d H:i'),
                     ];
@@ -221,6 +229,7 @@ class AppointmentController extends Controller
                 'created_at' => $appointment->created_at?->format('Y-m-d H:i'),
             ],
             'treatmentTypes' => $treatmentTypes,
+            'allTeeth' => $allTeeth,
         ]);
     }
 
