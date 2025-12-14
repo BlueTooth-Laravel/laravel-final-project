@@ -2,14 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModuleType;
+use App\Enums\AuditTargetType;
 use App\Models\ClinicAvailability;
 use App\Models\ClinicClosureException;
+use App\Services\AdminAuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class ClinicAvailabilityController extends Controller
 {
+    public function __construct(
+        protected AdminAuditService $auditService
+    ) {}
+
     /**
      * Display the clinic availability management page.
      */
@@ -62,6 +70,14 @@ class ClinicAvailabilityController extends Controller
             'close_time.after' => 'Close time must be after open time.',
         ]);
 
+        // Check if record exists for old value capture
+        $existingAvailability = ClinicAvailability::where('day_of_week', $validated['day_of_week'])->first();
+        $oldData = $existingAvailability ? [
+            'open_time' => $existingAvailability->open_time,
+            'close_time' => $existingAvailability->close_time,
+            'is_closed' => $existingAvailability->is_closed,
+        ] : null;
+
         $availability = ClinicAvailability::updateOrCreate(
             ['day_of_week' => $validated['day_of_week']],
             [
@@ -73,6 +89,23 @@ class ClinicAvailabilityController extends Controller
 
         $dayName = $availability->day_name;
 
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: $oldData ? 'Clinic Availability Updated' : 'Clinic Availability Created',
+            message: "Updated availability for {$dayName}",
+            moduleType: AuditModuleType::CLINIC_MANAGEMENT,
+            targetType: AuditTargetType::CLINIC_AVAILABILITY,
+            targetId: $availability->id,
+            oldValue: $oldData,
+            newValue: [
+                'day_name' => $dayName,
+                'open_time' => $availability->open_time,
+                'close_time' => $availability->close_time,
+                'is_closed' => $availability->is_closed,
+            ]
+        );
+
         return back()->with('success', "Availability for {$dayName} updated successfully.");
     }
 
@@ -82,7 +115,26 @@ class ClinicAvailabilityController extends Controller
     public function destroy(ClinicAvailability $clinicAvailability)
     {
         $dayName = $clinicAvailability->day_name;
+        $deletedData = [
+            'id' => $clinicAvailability->id,
+            'day_name' => $dayName,
+            'open_time' => $clinicAvailability->open_time,
+            'close_time' => $clinicAvailability->close_time,
+            'is_closed' => $clinicAvailability->is_closed,
+        ];
+
         $clinicAvailability->delete();
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Clinic Availability Removed',
+            message: "Removed availability for {$dayName}",
+            moduleType: AuditModuleType::CLINIC_MANAGEMENT,
+            targetType: AuditTargetType::CLINIC_AVAILABILITY,
+            targetId: $deletedData['id'],
+            oldValue: $deletedData
+        );
 
         return back()->with('success', "Availability for {$dayName} removed successfully.");
     }
@@ -100,11 +152,26 @@ class ClinicAvailabilityController extends Controller
             'date.unique' => 'A closure exception already exists for this date.',
         ]);
 
-        ClinicClosureException::create([
+        $closure = ClinicClosureException::create([
             'date' => $validated['date'],
             'reason' => $validated['reason'] ?? null,
             'is_closed' => $validated['is_closed'] ?? true,
         ]);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Closure Exception Added',
+            message: "Added closure exception for {$validated['date']}",
+            moduleType: AuditModuleType::CLINIC_MANAGEMENT,
+            targetType: AuditTargetType::CLOSURE_EXCEPTION,
+            targetId: $closure->id,
+            newValue: [
+                'date' => $validated['date'],
+                'reason' => $validated['reason'] ?? null,
+                'is_closed' => $validated['is_closed'] ?? true,
+            ]
+        );
 
         return back()->with('success', 'Closure exception added successfully.');
     }
@@ -114,7 +181,25 @@ class ClinicAvailabilityController extends Controller
      */
     public function destroyClosure(ClinicClosureException $closure)
     {
+        $deletedData = [
+            'id' => $closure->id,
+            'date' => $closure->date->format('Y-m-d'),
+            'reason' => $closure->reason,
+            'is_closed' => $closure->is_closed,
+        ];
+
         $closure->delete();
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Closure Exception Removed',
+            message: "Removed closure exception for {$deletedData['date']}",
+            moduleType: AuditModuleType::CLINIC_MANAGEMENT,
+            targetType: AuditTargetType::CLOSURE_EXCEPTION,
+            targetId: $deletedData['id'],
+            oldValue: $deletedData
+        );
 
         return back()->with('success', 'Closure exception removed successfully.');
     }

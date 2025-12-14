@@ -13,6 +13,8 @@ enum AuditModuleType: string
     case SETTINGS = 'settings';
     case AUTHENTICATION = 'authentication';
     case SYSTEM = 'system';
+    case SERVICES_MANAGEMENT = 'services-management';
+    case CLINIC_MANAGEMENT = 'clinic-management';
 
     /**
      * Get all available module types as an array.
@@ -37,6 +39,8 @@ enum AuditModuleType: string
             self::SETTINGS => 'Settings',
             self::AUTHENTICATION => 'Authentication',
             self::SYSTEM => 'System',
+            self::SERVICES_MANAGEMENT => 'Services Management',
+            self::CLINIC_MANAGEMENT => 'Clinic Management',
         };
     }
 }

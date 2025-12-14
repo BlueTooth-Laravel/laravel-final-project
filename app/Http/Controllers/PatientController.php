@@ -2,14 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModuleType;
+use App\Enums\AuditTargetType;
 use App\Http\Requests\StorePatientRequest;
 use App\Http\Requests\UpdatePatientRequest;
 use App\Models\Patient;
+use App\Services\AdminAuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class PatientController extends Controller
 {
+    public function __construct(
+        protected AdminAuditService $auditService
+    ) {}
+
     /**
      * Display a listing of patients with search, filter, and pagination.
      */
@@ -60,7 +68,23 @@ class PatientController extends Controller
     {
         $validated = $request->validated();
 
-        Patient::create($validated);
+        $patient = Patient::create($validated);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Patient Created',
+            message: "Created patient {$patient->fname} {$patient->lname}",
+            moduleType: AuditModuleType::PATIENT_MANAGEMENT,
+            targetType: AuditTargetType::PATIENT,
+            targetId: $patient->id,
+            newValue: [
+                'name' => trim("{$patient->fname} {$patient->mname} {$patient->lname}"),
+                'email' => $patient->email,
+                'gender' => $patient->gender,
+                'contact_number' => $patient->contact_number,
+            ]
+        );
 
         return redirect()->route('patients.index')
             ->with('success', 'Patient added successfully!');
@@ -101,7 +125,32 @@ class PatientController extends Controller
     {
         $validated = $request->validated();
 
+        // Capture old data for audit
+        $oldData = [
+            'name' => trim("{$patient->fname} {$patient->mname} {$patient->lname}"),
+            'email' => $patient->email,
+            'gender' => $patient->gender,
+            'contact_number' => $patient->contact_number,
+        ];
+
         $patient->update($validated);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Patient Updated',
+            message: "Updated patient {$patient->fname} {$patient->lname}",
+            moduleType: AuditModuleType::PATIENT_MANAGEMENT,
+            targetType: AuditTargetType::PATIENT,
+            targetId: $patient->id,
+            oldValue: $oldData,
+            newValue: [
+                'name' => trim("{$patient->fname} {$patient->mname} {$patient->lname}"),
+                'email' => $patient->email,
+                'gender' => $patient->gender,
+                'contact_number' => $patient->contact_number,
+            ]
+        );
 
         return redirect()->route('patients.show', $patient)
             ->with('success', 'Patient updated successfully!');

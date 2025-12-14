@@ -2,22 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModuleType;
+use App\Enums\AuditTargetType;
 use App\Http\Requests\UpdateOwnProfileRequest;
 use App\Http\Resources\DentistProfileResource;
 use App\Models\Appointment;
 use App\Models\ClinicAvailability;
 use App\Models\Specialization;
 use App\Models\TreatmentRecord;
+use App\Services\AdminAuditService;
 use App\Services\DentistService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DentistController extends Controller
 {
     public function __construct(
-        protected DentistService $dentistService
+        protected DentistService $dentistService,
+        protected AdminAuditService $auditService
     ) {}
     /**
      * Display the dentist dashboard with appointments and stats.
@@ -150,6 +155,13 @@ class DentistController extends Controller
         $user = $request->user();
         $validated = $request->validated();
 
+        // Capture old data for audit
+        $oldData = [
+            'name' => trim("{$user->fname} {$user->mname} {$user->lname}"),
+            'gender' => $user->gender,
+            'contact_number' => $user->contact_number,
+        ];
+
         // Handle avatar upload if provided
         $updateData = [
             'fname' => $validated['fname'],
@@ -172,7 +184,22 @@ class DentistController extends Controller
         // Professional information (employment_status, hire_date, specializations) can only be edited by admins
         $user->update($updateData);
 
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Dentist Profile Updated',
+            message: "Dentist {$user->fname} {$user->lname} updated their own profile",
+            moduleType: AuditModuleType::USER_MANAGEMENT,
+            targetType: AuditTargetType::DENTIST,
+            targetId: $user->id,
+            oldValue: $oldData,
+            newValue: [
+                'name' => trim("{$user->fname} {$user->mname} {$user->lname}"),
+                'gender' => $user->gender,
+                'contact_number' => $user->contact_number,
+            ]
+        );
+
         return redirect()->route('dentist.profile')->with('success', 'Profile updated successfully.');
     }
 }
-

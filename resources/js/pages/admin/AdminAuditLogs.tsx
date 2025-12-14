@@ -32,7 +32,7 @@ export default function AdminAuditLogs({ auditLogs }: AdminAuditLogsProps) {
         },
         {
             accessorKey: 'admin_name',
-            header: 'Admin',
+            header: 'User',
             cell: ({ row }: { row: { original: AdminAuditLog } }) => (
                 <div className="flex flex-col">
                     <span className="font-medium">{row.original.admin_name}</span>
@@ -40,6 +40,15 @@ export default function AdminAuditLogs({ auditLogs }: AdminAuditLogsProps) {
                         {row.original.admin_email}
                     </span>
                 </div>
+            ),
+        },
+        {
+            accessorKey: 'admin_role',
+            header: 'Role',
+            cell: ({ row }: { row: { original: AdminAuditLog } }) => (
+                <Badge variant={row.original.admin_role === 'Admin' ? 'default' : 'secondary'}>
+                    {row.original.admin_role}
+                </Badge>
             ),
         },
         {

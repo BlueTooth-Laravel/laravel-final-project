@@ -223,4 +223,77 @@ class AppointmentService
             ->values()
             ->toArray();
     }
+
+    /**
+     * Get all patients who have had appointments with a specific dentist by name.
+     * Admin only - searches for dentist by name then returns all their patients.
+     *
+     * @param string $dentistName The dentist's name (partial or full)
+     * @return array Patients with their appointment history
+     */
+    public function getPatientsByDentistName(string $dentistName): array
+    {
+        $searchTerm = '%' . strtolower($dentistName) . '%';
+        
+        // Find dentist(s) matching the name
+        $dentists = \App\Models\User::query()
+            ->where('role_id', 2) // Dentist role
+            ->where(function ($query) use ($searchTerm) {
+                $query->whereRaw("CONCAT_WS(' ', LOWER(fname), NULLIF(LOWER(mname), ''), LOWER(lname)) LIKE ?", [$searchTerm])
+                    ->orWhereRaw("CONCAT(LOWER(fname), ' ', LOWER(lname)) LIKE ?", [$searchTerm])
+                    ->orWhereRaw('LOWER(fname) LIKE ?', [$searchTerm])
+                    ->orWhereRaw('LOWER(lname) LIKE ?', [$searchTerm]);
+            })
+            ->get();
+
+        if ($dentists->isEmpty()) {
+            return ['found' => false, 'message' => "No dentist found matching '{$dentistName}'."];
+        }
+
+        $dentist = $dentists->first();
+        $dentistId = $dentist->id;
+
+        // Get all patients who have had appointments with this dentist
+        $patients = Appointment::query()
+            ->where('dentist_id', $dentistId)
+            ->with(['patient'])
+            ->get()
+            ->unique('patient_id')
+            ->map(function ($appt) use ($dentistId) {
+                $scheduledCount = Appointment::where('patient_id', $appt->patient_id)
+                    ->where('dentist_id', $dentistId)
+                    ->where('status', 'Scheduled')
+                    ->count();
+                    
+                $completedCount = Appointment::where('patient_id', $appt->patient_id)
+                    ->where('dentist_id', $dentistId)
+                    ->where('status', 'Completed')
+                    ->count();
+                
+                $lastAppointment = Appointment::where('patient_id', $appt->patient_id)
+                    ->where('dentist_id', $dentistId)
+                    ->latest('appointment_start_datetime')
+                    ->first();
+
+                return [
+                    'name' => $appt->patient->name,
+                    'contact' => $appt->patient->contact_number ?: 'N/A',
+                    'scheduled' => $scheduledCount,
+                    'completed' => $completedCount,
+                    'last_appointment' => $lastAppointment 
+                        ? $lastAppointment->appointment_start_datetime->format('M j, Y')
+                        : 'N/A',
+                ];
+            })
+            ->sortBy('name')
+            ->values()
+            ->toArray();
+
+        return [
+            'found' => true,
+            'dentist_name' => $dentist->name,
+            'patient_count' => count($patients),
+            'patients' => $patients,
+        ];
+    }
 }

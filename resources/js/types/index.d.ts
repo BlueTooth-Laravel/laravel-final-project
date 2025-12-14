@@ -132,6 +132,7 @@ export interface AdminAuditLog {
     id: number;
     admin_name: string;
     admin_email: string;
+    admin_role: string;
     activityTitle: string;
     moduleType: string;
     message: string;

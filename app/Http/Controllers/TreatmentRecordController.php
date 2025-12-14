@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModuleType;
+use App\Enums\AuditTargetType;
 use App\Models\Appointment;
 use App\Models\Tooth;
 use App\Models\TreatmentRecord;
 use App\Models\TreatmentRecordFile;
 use App\Models\TreatmentType;
 use App\Models\User;
+use App\Services\AdminAuditService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +19,9 @@ use Inertia\Inertia;
 
 class TreatmentRecordController extends Controller
 {
+    public function __construct(
+        protected AdminAuditService $auditService
+    ) {}
     /**
      * Display a listing of all treatment records with search and filters.
      */
@@ -160,9 +166,23 @@ class TreatmentRecordController extends Controller
             'treatment_notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
+        $oldNotes = $treatmentRecord->treatment_notes;
+
         $treatmentRecord->update([
             'treatment_notes' => $validated['treatment_notes'],
         ]);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Treatment Notes Updated',
+            message: "Updated notes for treatment record #{$treatmentRecord->id}",
+            moduleType: AuditModuleType::TREATMENT_MANAGEMENT,
+            targetType: AuditTargetType::TREATMENT_RECORD,
+            targetId: $treatmentRecord->id,
+            oldValue: ['treatment_notes' => $oldNotes],
+            newValue: ['treatment_notes' => $validated['treatment_notes']]
+        );
 
         return back()->with('success', 'Treatment notes updated successfully.');
     }
@@ -177,8 +197,22 @@ class TreatmentRecordController extends Controller
             'tooth_ids.*' => ['exists:teeth,id'],
         ]);
 
+        $oldTeethIds = $treatmentRecord->teeth->pluck('id')->toArray();
+
         // Sync teeth relationship
         $treatmentRecord->teeth()->sync($validated['tooth_ids'] ?? []);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Treatment Teeth Updated',
+            message: "Updated teeth for treatment record #{$treatmentRecord->id}",
+            moduleType: AuditModuleType::TREATMENT_MANAGEMENT,
+            targetType: AuditTargetType::TREATMENT_RECORD,
+            targetId: $treatmentRecord->id,
+            oldValue: ['tooth_ids' => $oldTeethIds],
+            newValue: ['tooth_ids' => $validated['tooth_ids'] ?? []]
+        );
 
         return back()->with('success', 'Teeth treated updated successfully.');
     }
@@ -195,13 +229,28 @@ class TreatmentRecordController extends Controller
         $file = $request->file('file');
         $path = $file->store('treatment-records/' . $treatmentRecord->id, 'public');
 
-        TreatmentRecordFile::create([
+        $recordFile = TreatmentRecordFile::create([
             'appointment_treatment_record_id' => $treatmentRecord->id,
             'file_path' => $path,
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
             'size' => $file->getSize(),
         ]);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Treatment File Uploaded',
+            message: "Uploaded file '{$recordFile->original_name}' to treatment record #{$treatmentRecord->id}",
+            moduleType: AuditModuleType::TREATMENT_MANAGEMENT,
+            targetType: AuditTargetType::TREATMENT_RECORD,
+            targetId: $treatmentRecord->id,
+            newValue: [
+                'file_id' => $recordFile->id,
+                'file_name' => $recordFile->original_name,
+                'mime_type' => $recordFile->mime_type,
+            ]
+        );
 
         return back()->with('success', 'File uploaded successfully.');
     }
@@ -216,11 +265,28 @@ class TreatmentRecordController extends Controller
             abort(404);
         }
 
+        $deletedData = [
+            'file_id' => $file->id,
+            'file_name' => $file->original_name,
+            'mime_type' => $file->mime_type,
+        ];
+
         // Delete the file from storage
         Storage::disk('public')->delete($file->file_path);
 
         // Delete the database record
         $file->delete();
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Treatment File Deleted',
+            message: "Deleted file '{$deletedData['file_name']}' from treatment record #{$treatmentRecord->id}",
+            moduleType: AuditModuleType::TREATMENT_MANAGEMENT,
+            targetType: AuditTargetType::TREATMENT_RECORD,
+            targetId: $treatmentRecord->id,
+            oldValue: $deletedData
+        );
 
         return back()->with('success', 'File deleted successfully.');
     }

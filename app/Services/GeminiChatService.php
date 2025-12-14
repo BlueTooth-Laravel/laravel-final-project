@@ -25,7 +25,7 @@ class GeminiChatService
     /**
      * Base system instruction for the AI assistant.
      */
-    private const BASE_SYSTEM_INSTRUCTION = 'You are a helpful dental clinic assistant. You can help patients and staff find information about appointments, treatments, and clinic hours. When asked about appointments, use the provided tools to look up accurate information. Be friendly, professional, and concise in your responses. Always assume the current year is 2025.';
+    private const BASE_SYSTEM_INSTRUCTION = 'You are a helpful dental clinic assistant. You can help patients and staff find information about appointments, treatments, and clinic hours. When asked about appointments, use the provided tools to look up accurate information. Be friendly, professional, and concise in your responses. IMPORTANT: Never mention function names, tool names, or technical implementation details in your responses. Just provide the information naturally as if you already know it. Do not ask "Would you like me to use X function?" - instead, just use the function and provide the results directly. When presenting lists of patients, dentists, appointments, or other structured data with multiple items (3+), format the results as a markdown table for better readability. Use columns like Name, Contact, Status, etc. as appropriate.';
 
     /**
      * Maximum number of messages to include in chat history context.
@@ -44,7 +44,8 @@ class GeminiChatService
         private readonly TreatmentService $treatmentService,
         private readonly ClinicService $clinicService,
         private readonly DentistService $dentistService,
-        private readonly ChatHistoryService $chatHistoryService
+        private readonly ChatHistoryService $chatHistoryService,
+        private readonly AuditService $auditService
     ) {}
 
     /**
@@ -52,8 +53,10 @@ class GeminiChatService
      */
     private function buildSystemInstruction($user): string
     {
-        $instruction = self::BASE_SYSTEM_INSTRUCTION;
-        
+        // Add current date context
+        $currentDate = now()->format('F j, Y');
+        $instruction = self::BASE_SYSTEM_INSTRUCTION . " Today's date is {$currentDate}.";
+
         if ($user) {
             $roleName = match ($user->role_id) {
                 1 => 'an administrator with full access to all functions including dentist management',
@@ -62,7 +65,7 @@ class GeminiChatService
             };
             $instruction .= " The current user is {$user->name}, who is {$roleName}. You can directly use admin-only or role-specific functions without asking for confirmation since you already know their role.";
         }
-        
+
         return $instruction;
     }
 
@@ -78,7 +81,7 @@ class GeminiChatService
     {
         try {
             $isNewConversation = false;
-            
+
             // Get or create conversation
             if ($user) {
                 if ($conversationId) {
@@ -88,7 +91,7 @@ class GeminiChatService
                     $isNewConversation = true;
                 }
                 $conversationId = $conversation->id;
-                
+
                 // Store user message and capture its ID for potential cancellation
                 $userMessageRecord = $this->chatHistoryService->addMessage($conversationId, 'user', $message);
                 $userMessageId = $userMessageRecord->id;
@@ -106,11 +109,11 @@ class GeminiChatService
                 $previousMessages = $this->chatHistoryService->getConversationMessages($conversationId);
                 // Exclude the last message (which is the current user message we just added)
                 $previousMessages = $previousMessages->slice(0, -1);
-                
+
                 // Limit to last MAX_HISTORY_MESSAGES to control token costs and quality
                 // Take the most recent messages (user + assistant pairs = ~10 exchanges)
                 $previousMessages = $previousMessages->slice(-self::MAX_HISTORY_MESSAGES);
-                
+
                 foreach ($previousMessages as $msg) {
                     $role = $msg->role === 'user' ? Role::USER : Role::MODEL;
                     $history[] = Content::parse(part: $msg->content, role: $role);
@@ -128,7 +131,7 @@ class GeminiChatService
 
             // Check if the model wants to call a function
             $parts = $response->parts();
-            
+
             if (empty($parts)) {
                 return [
                     'success' => false,
@@ -142,7 +145,7 @@ class GeminiChatService
             foreach ($parts as $part) {
                 if ($part->functionCall !== null) {
                     $functionCallCount++;
-                    
+
                     // Guard against too many function calls
                     if ($functionCallCount > self::MAX_FUNCTION_CALLS) {
                         Log::warning('Max function calls exceeded', ['count' => $functionCallCount]);
@@ -152,7 +155,7 @@ class GeminiChatService
                             'error' => 'Request too complex. Please try a simpler question.',
                         ];
                     }
-                    
+
                     $functionCall = $part->functionCall;
 
                     // Execute the function with RBAC
@@ -173,9 +176,9 @@ class GeminiChatService
 
                     // Send the function result back to Gemini
                     $finalResponse = $chat->sendMessage($functionResponseContent);
-                    
+
                     $responseText = $finalResponse->text();
-                    
+
                     // Store assistant message if user is authenticated
                     if ($user && $conversationId) {
                         $this->chatHistoryService->addMessage($conversationId, 'assistant', $responseText, $functionCall->name);
@@ -193,19 +196,18 @@ class GeminiChatService
 
             // No function call, return the direct text response
             $responseText = $response->text();
-            
+
             // Store assistant message if user is authenticated
             if ($user && $conversationId) {
                 $this->chatHistoryService->addMessage($conversationId, 'assistant', $responseText);
             }
-            
+
             return [
                 'success' => true,
                 'response' => $responseText,
                 'conversation_id' => $conversationId,
                 'user_message_id' => $userMessageId,
             ];
-
         } catch (\Exception $e) {
             // ... (error handling)
             return [
@@ -282,7 +284,7 @@ class GeminiChatService
                 ),
                 new FunctionDeclaration(
                     name: 'estimateTreatmentCost',
-                     description: 'Estimate the total cost for one or more treatments.',
+                    description: 'Estimate the total cost for one or more treatments.',
                     parameters: new Schema(
                         type: DataType::OBJECT,
                         properties: [
@@ -343,6 +345,73 @@ class GeminiChatService
                     description: 'Get all patients assigned to the dentist (all time, not just this week). Dentists see only their own patients.',
                     parameters: new Schema(type: DataType::OBJECT, properties: [])
                 ),
+                new FunctionDeclaration(
+                    name: 'getPatientsByDentistName',
+                    description: 'Get all patients who have appointments (current and past) with a specific dentist by name. Admin only.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'dentistName' => new Schema(
+                                type: DataType::STRING,
+                                description: 'The dentist\'s name to search for (e.g., "John", "Dr. Smith").',
+                            ),
+                        ],
+                        required: ['dentistName']
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'findAppointmentCreator',
+                    description: 'Find who created a specific appointment. Can search by appointment ID or patient name. Admin only.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'appointmentId' => new Schema(
+                                type: DataType::INTEGER,
+                                description: 'The appointment ID (optional if patient name is provided).',
+                            ),
+                            'patientName' => new Schema(
+                                type: DataType::STRING,
+                                description: 'The patient\'s name to find their appointment (optional if appointment ID is provided).',
+                            ),
+                        ]
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'searchAuditLogs',
+                    description: 'Search audit logs for actions performed on specific targets (appointments, patients, dentists, etc.). Admin only.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'targetType' => new Schema(
+                                type: DataType::STRING,
+                                description: 'The type of target to search for: appointment, patient, dentist, treatment-type, specialization.',
+                            ),
+                            'targetId' => new Schema(
+                                type: DataType::INTEGER,
+                                description: 'The ID of the target (optional).',
+                            ),
+                            'action' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Filter by action type: created, updated, deleted (optional).',
+                            ),
+                        ],
+                        required: ['targetType']
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'findEntityCreator',
+                    description: 'Find who created any entity by name. Works for users, admins, dentists, patients, appointments, etc. Use this when asked "who created [person/thing name]". Admin only.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'entityName' => new Schema(
+                                type: DataType::STRING,
+                                description: 'The name of the person or entity to search for (e.g., "John Doe", "Jane Smith").',
+                            ),
+                        ],
+                        required: ['entityName']
+                    )
+                ),
             ]
         );
     }
@@ -377,6 +446,10 @@ class GeminiChatService
             'getAllPatients' => $this->executeGetAllPatients($user),
             'listEmployedDentists' => $this->executeListEmployedDentists($user),
             'findDentistsBySpecialization' => $this->executeFindDentistsBySpecialization($argsArray, $user),
+            'getPatientsByDentistName' => $this->executeGetPatientsByDentistName($argsArray, $user),
+            'findAppointmentCreator' => $this->executeFindAppointmentCreator($argsArray, $user),
+            'searchAuditLogs' => $this->executeSearchAuditLogs($argsArray, $user),
+            'findEntityCreator' => $this->executeFindEntityCreator($argsArray, $user),
             default => ['error' => "Unknown function: {$functionCall->name}"],
         };
     }
@@ -413,7 +486,7 @@ class GeminiChatService
         $history = $this->appointmentService->getAppointmentHistory($patientName, $dentistId);
 
         if (empty($history)) {
-             return [
+            return [
                 'found' => false,
                 'message' => "No appointment history found for '{$patientName}'" . ($dentistId ? " with you." : "."),
             ];
@@ -428,7 +501,7 @@ class GeminiChatService
         if (empty($name)) return ['error' => 'Treatment name is required.'];
 
         $results = $this->treatmentService->findTreatmentsByName($name);
-        
+
         if ($results->isEmpty()) {
             return ['found' => false, 'message' => "No active treatments found matching '{$name}'."];
         }
@@ -439,7 +512,7 @@ class GeminiChatService
     private function executeGetClinicHours(array $args): array
     {
         $day = $args['dayQuery'] ?? '';
-        
+
         if (!empty($day)) {
             return $this->clinicService->getHoursForDay($day);
         }
@@ -451,7 +524,7 @@ class GeminiChatService
     {
         $names = $args['treatmentNames'] ?? [];
         if (empty($names)) return ['error' => 'List of treatment names is required.'];
-        
+
         return $this->treatmentService->estimateCost($names);
     }
 
@@ -525,7 +598,7 @@ class GeminiChatService
     private function executeGetAllPatients($user): array
     {
         if (!$user) return ['error' => 'Authentication required.'];
-        
+
         // Only dentists can view their patient list
         if ($user->role_id !== 2) {
             return ['error' => 'This function is only available to dentists.'];
@@ -542,5 +615,56 @@ class GeminiChatService
             'total_patients' => count($patients),
             'patients' => $patients
         ];
+    }
+
+    private function executeGetPatientsByDentistName(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $dentistName = $args['dentistName'] ?? '';
+        if (empty($dentistName)) return ['error' => 'Dentist name is required.'];
+
+        return $this->appointmentService->getPatientsByDentistName($dentistName);
+    }
+
+    private function executeFindAppointmentCreator(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $appointmentId = $args['appointmentId'] ?? null;
+        $patientName = $args['patientName'] ?? null;
+
+        if (!$appointmentId && !$patientName) {
+            return ['error' => 'Either appointment ID or patient name is required.'];
+        }
+
+        return $this->auditService->findAppointmentCreator($appointmentId, $patientName);
+    }
+
+    private function executeSearchAuditLogs(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $targetType = $args['targetType'] ?? '';
+        if (empty($targetType)) return ['error' => 'Target type is required.'];
+
+        $targetId = $args['targetId'] ?? null;
+        $action = $args['action'] ?? null;
+
+        return $this->auditService->searchAuditLogs($targetType, $targetId, $action);
+    }
+
+    private function executeFindEntityCreator(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $entityName = $args['entityName'] ?? '';
+        if (empty($entityName)) return ['error' => 'Entity name is required.'];
+
+        return $this->auditService->findEntityCreator($entityName);
     }
 }

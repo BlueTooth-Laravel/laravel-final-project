@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModuleType;
+use App\Enums\AuditTargetType;
 use App\Http\Requests\CancelAppointmentRequest;
 use App\Http\Requests\StoreAppointmentRequest;
 use App\Http\Requests\UpdateAppointmentRequest;
@@ -10,12 +12,16 @@ use App\Models\Patient;
 use App\Models\TreatmentRecord;
 use App\Models\TreatmentType;
 use App\Models\User;
+use App\Services\AdminAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class AppointmentController extends Controller
 {
+    public function __construct(
+        protected AdminAuditService $auditService
+    ) {}
     /**
      * Display a listing of appointments (calendar view).
      */
@@ -152,6 +158,25 @@ class AppointmentController extends Controller
             ]);
         }
 
+        // Load relations for audit log
+        $appointment->load(['patient:id,fname,lname', 'dentist:id,fname,lname']);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Appointment Created',
+            message: "Created appointment for {$appointment->patient->fname} {$appointment->patient->lname}",
+            moduleType: AuditModuleType::APPOINTMENT_MANAGEMENT,
+            targetType: AuditTargetType::APPOINTMENT,
+            targetId: $appointment->id,
+            newValue: [
+                'patient' => trim("{$appointment->patient->fname} {$appointment->patient->lname}"),
+                'dentist' => trim("{$appointment->dentist->fname} {$appointment->dentist->lname}"),
+                'datetime' => $appointment->appointment_start_datetime,
+                'status' => $appointment->status,
+            ]
+        );
+
         return redirect()->route('appointments.show', $appointment)
             ->with('success', 'Appointment scheduled successfully.');
     }
@@ -235,6 +260,14 @@ class AppointmentController extends Controller
     {
         $validated = $request->validated();
 
+        // Load relations and capture old data for audit
+        $appointment->load(['patient:id,fname,lname', 'dentist:id,fname,lname']);
+        $oldData = [
+            'dentist' => $appointment->dentist ? trim("{$appointment->dentist->fname} {$appointment->dentist->lname}") : null,
+            'datetime' => $appointment->appointment_start_datetime?->format('Y-m-d H:i'),
+            'purpose' => $appointment->purpose_of_appointment,
+        ];
+
         $appointment->update([
             'dentist_id' => $validated['dentist_id'],
             'appointment_start_datetime' => $validated['appointment_start_datetime'],
@@ -261,6 +294,25 @@ class AppointmentController extends Controller
             }
         }
 
+        // Reload for new values
+        $appointment->load(['dentist:id,fname,lname']);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Appointment Updated',
+            message: "Updated appointment #{$appointment->id}",
+            moduleType: AuditModuleType::APPOINTMENT_MANAGEMENT,
+            targetType: AuditTargetType::APPOINTMENT,
+            targetId: $appointment->id,
+            oldValue: $oldData,
+            newValue: [
+                'dentist' => $appointment->dentist ? trim("{$appointment->dentist->fname} {$appointment->dentist->lname}") : null,
+                'datetime' => $appointment->appointment_start_datetime?->format('Y-m-d H:i'),
+                'purpose' => $appointment->purpose_of_appointment,
+            ]
+        );
+
         return redirect()->route('appointments.show', $appointment)
             ->with('success', 'Appointment updated successfully.');
     }
@@ -274,10 +326,31 @@ class AppointmentController extends Controller
             return back()->withErrors(['error' => 'This appointment is already cancelled.']);
         }
 
+        $oldStatus = $appointment->status;
+        $cancellationReason = $request->validated()['cancellation_reason'];
+
         $appointment->update([
             'status' => 'Cancelled',
-            'cancellation_reason' => $request->validated()['cancellation_reason'],
+            'cancellation_reason' => $cancellationReason,
         ]);
+
+        // Load relations for audit
+        $appointment->load(['patient:id,fname,lname']);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Appointment Cancelled',
+            message: "Cancelled appointment #{$appointment->id} for {$appointment->patient->fname} {$appointment->patient->lname}",
+            moduleType: AuditModuleType::APPOINTMENT_MANAGEMENT,
+            targetType: AuditTargetType::APPOINTMENT,
+            targetId: $appointment->id,
+            oldValue: ['status' => $oldStatus],
+            newValue: [
+                'status' => 'Cancelled',
+                'cancellation_reason' => $cancellationReason,
+            ]
+        );
 
         return redirect()->route('appointments.show', $appointment)
             ->with('success', 'Appointment cancelled successfully.');
@@ -292,7 +365,23 @@ class AppointmentController extends Controller
             return back()->withErrors(['error' => 'Only scheduled appointments can be marked as completed.']);
         }
 
+        $oldStatus = $appointment->status;
         $appointment->update(['status' => 'Completed']);
+
+        // Load relations for audit
+        $appointment->load(['patient:id,fname,lname']);
+
+        // Audit log
+        $this->auditService->log(
+            adminId: Auth::id(),
+            activityTitle: 'Appointment Completed',
+            message: "Marked appointment #{$appointment->id} as completed",
+            moduleType: AuditModuleType::APPOINTMENT_MANAGEMENT,
+            targetType: AuditTargetType::APPOINTMENT,
+            targetId: $appointment->id,
+            oldValue: ['status' => $oldStatus],
+            newValue: ['status' => 'Completed']
+        );
 
         return redirect()->route('appointments.show', $appointment)
             ->with('success', 'Appointment marked as completed.');

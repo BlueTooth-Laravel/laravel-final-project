@@ -42,37 +42,127 @@ const formatBold = (text: string) => {
     });
 };
 
-const formatMessage = (content: string) => {
+/**
+ * Parse markdown table into structured data
+ */
+const parseMarkdownTable = (lines: string[], startIndex: number): { table: { headers: string[]; rows: string[][] }; endIndex: number } | null => {
+    // Check if this looks like a table header row (contains |)
+    const headerLine = lines[startIndex];
+    if (!headerLine.includes('|')) return null;
+    
+    // Next line should be separator (|---|---|)
+    const separatorLine = lines[startIndex + 1];
+    if (!separatorLine || !separatorLine.match(/^\|?[\s-:|]+\|?$/)) return null;
+    
+    // Parse header
+    const headers = headerLine
+        .split('|')
+        .map(h => h.trim())
+        .filter(h => h.length > 0);
+    
+    // Parse rows
+    const rows: string[][] = [];
+    let currentIndex = startIndex + 2;
+    
+    while (currentIndex < lines.length) {
+        const line = lines[currentIndex];
+        if (!line.includes('|') || line.trim() === '') break;
+        
+        const cells = line
+            .split('|')
+            .map(c => c.trim())
+            .filter(c => c.length > 0 || line.startsWith('|'));
+        
+        // Only add if row has content
+        if (cells.some(c => c.length > 0)) {
+            rows.push(cells.filter(c => c.length > 0));
+        }
+        currentIndex++;
+    }
+    
+    if (rows.length === 0) return null;
+    
+    return { table: { headers, rows }, endIndex: currentIndex - 1 };
+};
+
+const formatMessage = (content: string, maxTableWidth?: number) => {
     const lines = content.split('\n');
     const formattedElements: React.ReactNode[] = [];
     let listItems: React.ReactNode[] = [];
+    let i = 0;
 
-    lines.forEach((line, index) => {
+    while (i < lines.length) {
+        const line = lines[i];
         const trimmedLine = line.trim();
+        
+        // Try to parse as table
+        const tableResult = parseMarkdownTable(lines, i);
+        if (tableResult) {
+            // Flush any pending list items
+            if (listItems.length > 0) {
+                formattedElements.push(<ul key={`ul-${i}`} className="list-disc pl-5 mb-2 space-y-1">{listItems}</ul>);
+                listItems = [];
+            }
+            
+            // Render table with dynamic max-width based on chat width
+            const { table, endIndex } = tableResult;
+            const tableStyle = maxTableWidth ? { maxWidth: `${maxTableWidth}px` } : {};
+            formattedElements.push(
+                <div key={`table-${i}`} className="my-3 overflow-x-auto" style={tableStyle}>
+                    <table className="text-sm border-collapse">
+                        <thead>
+                            <tr className="border-b border-foreground/20">
+                                {table.headers.map((header, hIdx) => (
+                                    <th key={hIdx} className="px-3 py-2 text-left font-semibold whitespace-nowrap">
+                                        {formatBold(header)}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-foreground/10">
+                            {table.rows.map((row, rIdx) => (
+                                <tr key={rIdx} className="hover:bg-foreground/5 transition-colors">
+                                    {row.map((cell, cIdx) => (
+                                        <td key={cIdx} className="px-3 py-2 whitespace-nowrap">
+                                            {formatBold(cell)}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+            i = endIndex + 1;
+            continue;
+        }
+        
+        // Handle list items
         if (trimmedLine.startsWith('* ')) {
             const listContent = trimmedLine.substring(2);
-            listItems.push(<li key={`li-${index}`} className="mb-1">{formatBold(listContent)}</li>);
+            listItems.push(<li key={`li-${i}`} className="mb-1">{formatBold(listContent)}</li>);
         } else {
             if (listItems.length > 0) {
-                 formattedElements.push(<ul key={`ul-${index}`} className="list-disc pl-5 mb-2 space-y-1">{listItems}</ul>);
-                 listItems = [];
+                formattedElements.push(<ul key={`ul-${i}`} className="list-disc pl-5 mb-2 space-y-1">{listItems}</ul>);
+                listItems = [];
             }
             if (line !== '') {
-                 formattedElements.push(<p key={`p-${index}`} className="mb-1 last:mb-0 min-h-[1.2em]">{formatBold(line)}</p>);
+                formattedElements.push(<p key={`p-${i}`} className="mb-1 last:mb-0 min-h-[1.2em]">{formatBold(line)}</p>);
             }
         }
-    });
+        i++;
+    }
     
     if (listItems.length > 0) {
-         formattedElements.push(<ul key={`ul-end-${lines.length}`} className="list-disc pl-5 mb-2 space-y-1">{listItems}</ul>);
+        formattedElements.push(<ul key={`ul-end-${lines.length}`} className="list-disc pl-5 mb-2 space-y-1">{listItems}</ul>);
     }
     
     return <div className="leading-relaxed">{formattedElements}</div>;
 };
 
-const AnimatedMessage = ({ text }: { text: string }) => {
+const AnimatedMessage = ({ text, maxTableWidth }: { text: string; maxTableWidth?: number }) => {
     const animatedText = useAnimatedText(text, " ");
-    return formatMessage(animatedText);
+    return formatMessage(animatedText, maxTableWidth);
 }
 
 export function DentalChatBot() {
@@ -89,12 +179,12 @@ export function DentalChatBot() {
     const abortControllerRef = useRef<AbortController | null>(null);
     
     // Resize Logic
-    const DEFAULT_WIDTH = 600;
+    const DEFAULT_WIDTH = 700;
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [isResizing, setIsResizing] = useState(false);
 
     const minWidth = DEFAULT_WIDTH;
-    const maxWidth = 1000;
+    const maxWidth = 1200;
 
     const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
         mouseDownEvent.preventDefault();
@@ -133,17 +223,17 @@ export function DentalChatBot() {
         if (userRole === 1) {
             // Admin suggestions
             return [
+                "What can you do?",
                 "List all employed dentists",
                 "Find dentist by specialization...",
                 "What time does the clinic open?",
-                "How much is a cleaning?",
             ];
         } else if (userRole === 2) {
             // Dentist suggestions
             return [
+                "What can you do?",
                 "Show my schedule for today",
                 "List my patients this week",
-                "Find next appointment for...",
                 "Show all my patients",
             ];
         }
@@ -457,8 +547,8 @@ export function DentalChatBot() {
                     </SheetHeader>
 
                     {/* Messages or Welcome Screen */}
-                    <div className="flex-1 overflow-hidden relative">
-                        <ScrollArea ref={scrollAreaRef} className="h-full px-6 py-4">
+                    <div className="flex-1 overflow-hidden relative w-full">
+                        <ScrollArea ref={scrollAreaRef} className="h-full w-full px-6 py-4">
                             {isHistoryLoading ? (
                                 <div className="flex flex-col items-center justify-center h-full py-10 space-y-4">
                                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -493,11 +583,11 @@ export function DentalChatBot() {
                                 </div>
                             ) : (
                                 /* Chat Messages */
-                                <div className="space-y-4 pb-4">
+                                <div className="space-y-4 pb-4 w-full overflow-hidden">
                                     {messages.map((message) => (
                                         <div
                                             key={message.id}
-                                            className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                            className={`flex gap-3 w-full overflow-hidden ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                         >
                                             {message.role === 'assistant' && (
                                                 <Avatar className="h-8 w-8 flex-shrink-0">
@@ -507,16 +597,16 @@ export function DentalChatBot() {
                                                 </Avatar>
                                             )}
                                             <div
-                                                className={`rounded-2xl px-4 py-2 max-w-[80%] ${
+                                                className={`rounded-2xl px-4 py-2 max-w-[80%] overflow-x-auto ${
                                                     message.role === 'user'
                                                         ? 'bg-primary text-primary-foreground'
                                                         : 'bg-muted'
                                                 }`}
                                             >
                                                 {message.isAnimated ? (
-                                                    <AnimatedMessage text={message.content} />
+                                                    <AnimatedMessage text={message.content} maxTableWidth={Math.floor(width * 0.8 - 80)} />
                                                 ) : (
-                                                    <p className="text-sm whitespace-pre-wrap break-words">{formatMessage(message.content)}</p>
+                                                    <div className="text-sm whitespace-pre-wrap break-words">{formatMessage(message.content, Math.floor(width * 0.8 - 80))}</div>
                                                 )}
                                             </div>
                                             {message.role === 'user' && (

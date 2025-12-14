@@ -220,7 +220,7 @@ class AdminController extends Controller
     public function indexAuditLogs()
     {
         // Get all audit logs with admin information, ordered by latest first
-        $auditLogs = AdminAudit::with('admin:id,fname,mname,lname,email')
+        $auditLogs = AdminAudit::with('admin:id,fname,mname,lname,email,role_id', 'admin.role:id,name')
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($log) {
@@ -228,6 +228,7 @@ class AdminController extends Controller
                     'id' => $log->id,
                     'admin_name' => $log->admin ? trim($log->admin->fname . ' ' . ($log->admin->mname ?? '') . ' ' . $log->admin->lname) : 'N/A',
                     'admin_email' => $log->admin?->email ?? 'N/A',
+                    'admin_role' => $log->admin?->role?->name ?? 'N/A',
                     'activityTitle' => $log->activityTitle,
                     'moduleType' => $log->moduleType,
                     'message' => $log->message,
