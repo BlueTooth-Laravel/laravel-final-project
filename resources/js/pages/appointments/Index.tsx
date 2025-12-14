@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye, LayoutGrid, List, Plus, X } from 'lucide-react';
+import { Eye, LayoutGrid, List, MoreHorizontal, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { AppointmentsCalendar } from '@/components/AppointmentsCalendar';
@@ -17,6 +17,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 
 interface Appointment {
@@ -150,16 +157,26 @@ export default function AppointmentsIndex({ appointments, filters }: Appointment
         },
         {
             id: 'actions',
-            header: 'Actions',
+            header: () => <div className="text-center">Actions</div>,
             cell: ({ row }: { row: { original: Appointment } }) => (
                 <div className="flex justify-center">
-                    <Link
-                        href={`/appointments/${row.original.id}`}
-                        className="inline-flex items-center justify-center rounded-md p-2 text-blue-600 hover:bg-blue-50 hover:text-blue-800 dark:text-blue-400 dark:hover:bg-blue-950 dark:hover:text-blue-300 transition-colors"
-                        title="View appointment details"
-                    >
-                        <Eye className="size-4" />
-                    </Link>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/appointments/${row.original.id}`}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Details
+                                </Link>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             ),
         },

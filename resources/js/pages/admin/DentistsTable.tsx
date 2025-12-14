@@ -15,7 +15,14 @@ import admin from '@/routes/admin';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem, type Dentist } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Eye, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, MoreHorizontal, X } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Specialization {
     id: number;
@@ -152,16 +159,26 @@ export default function DentistsTable({
         },
         {
             id: 'actions',
-            header: 'Actions',
+            header: () => <div className="text-center">Actions</div>,
             cell: ({ row }: { row: { original: Dentist } }) => (
                 <div className="flex justify-center">
-                    <Link
-                        href={`/admin/dentists/${row.original.dentist_id}`}
-                        className="inline-flex items-center justify-center rounded-md p-2 text-blue-600 hover:bg-blue-50 hover:text-blue-800 dark:text-blue-400 dark:hover:bg-blue-950 dark:hover:text-blue-300 transition-colors"
-                        title="View dentist details"
-                    >
-                        <Eye className="size-4" />
-                    </Link>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/admin/dentists/${row.original.dentist_id}`}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Details
+                                </Link>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             ),
         },

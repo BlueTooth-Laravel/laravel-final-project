@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { CalendarPlus, Eye, X } from 'lucide-react';
+import { CalendarPlus, Eye, MoreHorizontal, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Patient {
     id: number;
@@ -113,23 +120,32 @@ export default function PatientsIndex({ patients, filters }: PatientsIndexProps)
         },
         {
             id: 'actions',
-            header: 'Actions',
+            header: () => <div className="text-center">Actions</div>,
             cell: ({ row }: { row: { original: Patient } }) => (
-                <div className="flex justify-center gap-1">
-                    <Link
-                        href={`/patients/${row.original.id}`}
-                        className="inline-flex items-center justify-center rounded-md p-2 text-blue-600 hover:bg-blue-50 hover:text-blue-800 dark:text-blue-400 dark:hover:bg-blue-950 dark:hover:text-blue-300 transition-colors"
-                        title="View patient details"
-                    >
-                        <Eye className="size-4" />
-                    </Link>
-                    <Link
-                        href={`/appointments/create?patient_id=${row.original.id}`}
-                        className="inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-800 dark:text-green-400 dark:hover:bg-green-950 dark:hover:text-green-300 transition-colors"
-                        title="Book appointment"
-                    >
-                        <CalendarPlus className="size-4" />
-                    </Link>
+                <div className="flex justify-center">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/patients/${row.original.id}`}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Details
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/appointments/create?patient_id=${row.original.id}`}>
+                                    <CalendarPlus className="mr-2 h-4 w-4" />
+                                    Book Appointment
+                                </Link>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             ),
         },

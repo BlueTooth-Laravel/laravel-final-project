@@ -12,7 +12,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Eye, X } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Eye, MoreHorizontal, X } from 'lucide-react';
 
 interface TreatmentRecordItem {
     id: number;
@@ -115,14 +122,26 @@ export default function Index({ records, dentists, treatmentTypes, filters }: In
         },
         {
             id: 'actions',
-            header: 'Actions',
+            header: () => <div className="text-center">Actions</div>,
             cell: ({ row }: { row: { original: TreatmentRecordItem } }) => (
                 <div className="flex justify-center">
-                    <Link href={`/appointments/${row.original.appointment_id}/treatment-records/${row.original.id}`}>
-                        <Button size="sm" variant="ghost">
-                            <Eye className="size-4" />
-                        </Button>
-                    </Link>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/appointments/${row.original.appointment_id}/treatment-records/${row.original.id}`}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Details
+                                </Link>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             ),
         },
