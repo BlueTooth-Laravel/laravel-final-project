@@ -3,7 +3,7 @@ import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
-import { initializeTheme } from './hooks/use-appearance';
+import { initializeTheme, ThemeProvider } from './hooks/use-appearance';
 import { AnimatedScrollbar } from '@/components/ui/animated-scrollbar';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -19,10 +19,10 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(
-            <>
+            <ThemeProvider>
                 <AnimatedScrollbar />
                 <App {...props} />
-            </>,
+            </ThemeProvider>,
         );
     },
     progress: {

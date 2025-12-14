@@ -36,6 +36,7 @@ import {
     Users,
 } from 'lucide-react';
 import AppLogo from './app-logo';
+import { useAppearance } from '@/hooks/use-appearance';
 
 // Role constants
 const ROLE_ADMIN = 1;
@@ -64,6 +65,7 @@ export function AppSidebar() {
     const page = usePage<SharedData>();
     const { auth } = page.props;
     const user = auth.user;
+    const { resolvedTheme } = useAppearance();
 
     const userRole = auth.user.role_id;
     const isAdmin = userRole === ROLE_ADMIN;
@@ -133,7 +135,13 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
                             <Link href={dashboardUrl} prefetch>
-                                <AppLogo />
+                                <AppLogo
+                                    iconSrc={
+                                        resolvedTheme === 'light'
+                                            ? '/BlueTooth-logo-light-mode.svg'
+                                            : '/BlueTooth-logo.svg'
+                                    }
+                                />
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>

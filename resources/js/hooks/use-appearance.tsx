@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import {
+    createContext,
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
+} from 'react';
 
 export type Appearance = 'light' | 'dark' | 'system';
+export type ResolvedTheme = 'light' | 'dark';
 
 const prefersDark = () => {
     if (typeof window === 'undefined') {
@@ -35,23 +43,26 @@ const mediaQuery = () => {
     return window.matchMedia('(prefers-color-scheme: dark)');
 };
 
-const handleSystemThemeChange = () => {
-    const currentAppearance = localStorage.getItem('appearance') as Appearance;
-    applyTheme(currentAppearance || 'system');
-};
-
 export function initializeTheme() {
     const savedAppearance =
         (localStorage.getItem('appearance') as Appearance) || 'system';
 
     applyTheme(savedAppearance);
-
-    // Add the event listener for system theme changes...
-    mediaQuery()?.addEventListener('change', handleSystemThemeChange);
 }
 
-export function useAppearance() {
+interface AppearanceContextType {
+    appearance: Appearance;
+    updateAppearance: (mode: Appearance) => void;
+    resolvedTheme: ResolvedTheme;
+}
+
+const AppearanceContext = createContext<AppearanceContextType | undefined>(
+    undefined,
+);
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
     const [appearance, setAppearance] = useState<Appearance>('system');
+    const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light');
 
     const updateAppearance = useCallback((mode: Appearance) => {
         setAppearance(mode);
@@ -63,6 +74,13 @@ export function useAppearance() {
         setCookie('appearance', mode);
 
         applyTheme(mode);
+
+        // Update resolved theme
+        if (mode === 'system') {
+            setResolvedTheme(prefersDark() ? 'dark' : 'light');
+        } else {
+            setResolvedTheme(mode);
+        }
     }, []);
 
     useEffect(() => {
@@ -71,12 +89,36 @@ export function useAppearance() {
         ) as Appearance | null;
         updateAppearance(savedAppearance || 'system');
 
-        return () =>
-            mediaQuery()?.removeEventListener(
-                'change',
-                handleSystemThemeChange,
-            );
+        const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+            // Only update if we are in system mode
+            const currentAppearance = localStorage.getItem(
+                'appearance',
+            ) as Appearance;
+            if (currentAppearance === 'system' || !currentAppearance) {
+                applyTheme('system');
+                setResolvedTheme(e.matches ? 'dark' : 'light');
+            }
+        };
+
+        const mq = mediaQuery();
+        mq?.addEventListener('change', handleSystemThemeChange);
+
+        return () => mq?.removeEventListener('change', handleSystemThemeChange);
     }, [updateAppearance]);
 
-    return { appearance, updateAppearance } as const;
+    return (
+        <AppearanceContext.Provider
+            value={{ appearance, updateAppearance, resolvedTheme }}
+        >
+            {children}
+        </AppearanceContext.Provider>
+    );
+}
+
+export function useAppearance() {
+    const context = useContext(AppearanceContext);
+    if (!context) {
+        throw new Error('useAppearance must be used within a ThemeProvider');
+    }
+    return context;
 }
