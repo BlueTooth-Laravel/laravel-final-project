@@ -40,6 +40,7 @@ import admin from '@/routes/admin';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 
 // Define strict types for props since we are adding new ones
@@ -96,11 +97,8 @@ function DatePickerWithInput({ value: initialValue, onChange, className, error }
         if (isValidDate(newDate)) {
             setDate(newDate);
             setMonth(newDate);
-            // Convert to YYYY-MM-DD for parent
-            // Adjust for timezone offset to avoid off-by-one error when converting to string
-            const offset = newDate.getTimezoneOffset();
-            const adjustedDate = new Date(newDate.getTime() - (offset*60*1000));
-            onChange(adjustedDate.toISOString().split('T')[0]);
+            // Use date-fns format to preserve local timezone
+            onChange(format(newDate, 'yyyy-MM-dd'));
         }
     };
 
@@ -109,10 +107,8 @@ function DatePickerWithInput({ value: initialValue, onChange, className, error }
         setInputValue(formatDateForInput(newDate));
         setOpen(false);
         if (newDate) {
-             // Adjust for timezone offset
-             const offset = newDate.getTimezoneOffset();
-             const adjustedDate = new Date(newDate.getTime() - (offset*60*1000));
-             onChange(adjustedDate.toISOString().split('T')[0]);
+             // Use date-fns format to preserve local timezone
+             onChange(format(newDate, 'yyyy-MM-dd'));
         } else {
              onChange('');
         }
@@ -211,7 +207,7 @@ export default function DentistProfile({
         email: dentist.email,
         contact_number: dentist.contact_number || '',
         employment_status: dentist.employment_status || 'Active',
-        hire_date: dentist.hire_date ? new Date(dentist.hire_date).toISOString().split('T')[0] : '',
+        hire_date: dentist.hire_date ? format(new Date(dentist.hire_date), 'yyyy-MM-dd') : '',
         specialization_ids: dentist.specializations.map((s) => s.id),
     });
 

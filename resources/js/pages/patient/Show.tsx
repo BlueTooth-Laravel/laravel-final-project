@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePicker } from '@/components/ui/date-picker';
+import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -311,7 +312,7 @@ export default function ShowPatient({ patient }: ShowPatientProps) {
                                         <>
                                             <DatePicker
                                                 value={data.date_of_birth}
-                                                onChange={(date) => setData('date_of_birth', date ? date.toISOString().split('T')[0] : '')}
+                                                onChange={(date) => setData('date_of_birth', date ? format(date, 'yyyy-MM-dd') : '')}
                                                 placeholder="Select date of birth"
                                                 disableFuture
                                             />
