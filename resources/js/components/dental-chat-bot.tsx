@@ -676,7 +676,7 @@ export function DentalChatBot({ className, isGlobal = false }: { className?: str
                 <SheetTrigger asChild>
                     {!isOpen && (
                         <Button
-                            className={`h-14 w-14 rounded-full shadow-lg hover:scale-110 transition-transform z-50 ${className || 'fixed bottom-6 right-6'}`}
+                            className={`h-14 w-14 rounded-full shadow-lg hover:scale-110 transition-transform z-50 ${className || 'fixed bottom-3 right-3'}`}
                             size="icon"
                         >
                             <MessageCircle className="h-6 w-6" />

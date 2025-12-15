@@ -356,7 +356,7 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                     {/* TV Screen Border/Frame */}
                     <div className="relative mx-auto h-full overflow-hidden rounded-[8px] bg-brand-light sm:rounded-[12px] md:rounded-[16px] lg:rounded-[20px] xl:rounded-[24px]">
                         {/* Custom Chat Bot Button via explicit placement */}
-                        <DentalChatBot className="absolute bottom-6 right-6 z-50 shadow-xl" />
+                        <DentalChatBot className="absolute bottom-3 right-3 z-50 shadow-lg" />
 
                         {/* Scrollable Inner Content - The "TV Screen" */}
                         <div
