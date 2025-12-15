@@ -9,8 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAnimatedText } from '@/components/ui/animated-text';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { usePage } from '@inertiajs/react';
-import { type SharedData } from '@/types';
+import { useChatContext } from '@/contexts/chat-context';
 
 interface Message {
     id: string;
@@ -166,23 +165,42 @@ const AnimatedMessage = ({ text, maxTableWidth }: { text: string; maxTableWidth?
 }
 
 export function DentalChatBot() {
-    const [isOpen, setIsOpen] = useState(false);
+    // Get persistent state from context
+    const {
+        isOpen,
+        setIsOpen,
+        messages,
+        setMessages,
+        currentConversationId,
+        setCurrentConversationId,
+        conversations,
+        setConversations,
+        width,
+        setWidth,
+        clearChat,
+        user,
+    } = useChatContext();
+
+    const userRole = user?.role_id;
+
+    useEffect(() => {
+        console.log('DentalChatBot User:', user);
+        console.log('DentalChatBot User Avatar URL:', user?.avatar_url);
+    }, [user]);
+
+    // Local-only state (doesn't need to persist)
     const [query, setQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
-    const [conversations, setConversations] = useState<Conversation[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
-    const [messages, setMessages] = useState<Message[]>([]);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     
     // Resize Logic
     const DEFAULT_WIDTH = 700;
-    const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [isResizing, setIsResizing] = useState(false);
-
+    
     const minWidth = DEFAULT_WIDTH;
     const maxWidth = 1200;
 
@@ -216,8 +234,14 @@ export function DentalChatBot() {
         };
     }, [resize, stopResizing]);
 
-    const { auth } = usePage<SharedData>().props;
-    const userRole = auth.user?.role_id;
+    useEffect(() => {
+        window.addEventListener("mousemove", resize);
+        window.addEventListener("mouseup", stopResizing);
+        return () => {
+            window.removeEventListener("mousemove", resize);
+            window.removeEventListener("mouseup", stopResizing);
+        };
+    }, [resize, stopResizing]);
 
     const suggestions = useMemo(() => {
         if (userRole === 1) {
@@ -239,9 +263,10 @@ export function DentalChatBot() {
         }
         // Default/guest suggestions
         return [
+            "What services do you offer?",
+            "Who are your dentists?",
+            "What specializations do you have?",
             "What time does the clinic open?",
-            "How much is a cleaning?",
-            "What treatments do you offer?",
         ];
     }, [userRole]);
 
@@ -256,14 +281,15 @@ export function DentalChatBot() {
     }, [messages, isOpen]);
 
     // Fetch conversations when chat opens, but delay slightly to allow animation to finish
+    // Skip for guests (no user)
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && user) {
             const timer = setTimeout(() => {
                 fetchConversations();
             }, 300); // Wait for sheet animation to complete
             return () => clearTimeout(timer);
         }
-    }, [isOpen]);
+    }, [isOpen, user]);
 
     const fetchConversations = async () => {
         try {
@@ -323,10 +349,13 @@ export function DentalChatBot() {
         setIsLoading(true);
 
         try {
-            const response = await axios.post('/api/chat', { 
-                message: text,
-                conversation_id: currentConversationId 
-            }, {
+            // Use guest endpoint for unauthenticated users
+            const endpoint = user ? '/api/chat' : '/api/chat/guest';
+            const payload = user 
+                ? { message: text, conversation_id: currentConversationId }
+                : { message: text };
+
+            const response = await axios.post(endpoint, payload, {
                 signal: abortControllerRef.current.signal,
                 timeout: 30000, // 30 second timeout
             });
@@ -340,8 +369,8 @@ export function DentalChatBot() {
 
             setMessages(prev => [...prev, aiMessage]);
             
-            // Update conversation ID if this was a new conversation
-            if (response.data.conversation_id && !currentConversationId) {
+            // Update conversation ID if this was a new conversation (authenticated users only)
+            if (user && response.data.conversation_id && !currentConversationId) {
                 setCurrentConversationId(response.data.conversation_id);
                 fetchConversations(); // Refresh conversation list
             }
@@ -352,10 +381,16 @@ export function DentalChatBot() {
             // Rollback: remove the user message on failure
             setMessages(prev => prev.filter(m => m.id !== tempId));
             
+            // Check for rate limit error (HTTP 429)
+            let errorContent = "I'm sorry, I encountered an error. Please try again.";
+            if (axios.isAxiosError(error) && error.response?.status === 429) {
+                errorContent = "Too many requests. Please wait a moment and try again.";
+            }
+            
             const errorMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: "I'm sorry, I encountered an error. Please try again.",
+                content: errorContent,
                 isAnimated: false
             };
             setMessages(prev => [...prev, errorMessage]);
@@ -397,8 +432,7 @@ export function DentalChatBot() {
     const handleNewChat = () => {
         // Cancel any pending requests when starting new chat
         abortControllerRef.current?.abort();
-        setCurrentConversationId(null);
-        setMessages([]);
+        clearChat();
     };
 
     const handleDeleteConversation = async (conversationId: number, e: React.MouseEvent) => {
@@ -458,7 +492,7 @@ export function DentalChatBot() {
             </SheetTrigger>
             <SheetContent
                 side="right"
-                className={`p-0 gap-0 [&>button]:hidden ${isResizing ? 'transition-none' : 'transition-all duration-300 ease-in-out'}`}
+                className={`p-0 gap-0 [&>button]:hidden ${(isResizing) ? 'transition-none' : 'transition-all duration-300 ease-in-out'}`}
                 style={{ width: `${width}px`, maxWidth: `${maxWidth}px` }}
                 onInteractOutside={(e) => e.preventDefault()}
             >
@@ -490,53 +524,63 @@ export function DentalChatBot() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                                {/* Chat History Dropdown */}
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon">
-                                            <ChevronDown className="h-5 w-5" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-64">
-                                        <DropdownMenuLabel>Chat History</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        {conversations.length === 0 ? (
-                                            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                                                No chat history yet
-                                            </div>
-                                        ) : (
-                                            conversations.map((conv) => (
-                                                <DropdownMenuItem
-                                                    key={conv.id}
-                                                    onClick={() => loadConversation(conv.id)}
-                                                    className="group flex items-start justify-between gap-2 cursor-pointer"
-                                                >
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="font-medium truncate text-sm">
-                                                            {conv.title}
-                                                        </div>
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {conv.updated_at}
-                                                        </div>
-                                                    </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 hover:text-destructive"
-                                                        onClick={(e) => handleDeleteConversation(conv.id, e)}
+                                {/* Chat History Dropdown - only for authenticated users */}
+                                {user && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon">
+                                                <ChevronDown className="h-5 w-5" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-64">
+                                            <DropdownMenuLabel>Chat History</DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            {conversations.length === 0 ? (
+                                                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                                    No chat history yet
+                                                </div>
+                                            ) : (
+                                                conversations.map((conv) => (
+                                                    <DropdownMenuItem
+                                                        key={conv.id}
+                                                        onClick={() => loadConversation(conv.id)}
+                                                        className={`group flex items-start justify-between gap-2 cursor-pointer ${
+                                                            currentConversationId === conv.id 
+                                                                ? 'bg-primary/10 border-l-2 border-primary' 
+                                                                : ''
+                                                        }`}
                                                     >
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                </DropdownMenuItem>
-                                            ))
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className={`font-medium truncate text-sm ${
+                                                                currentConversationId === conv.id ? 'text-primary' : ''
+                                                            }`}>
+                                                                {conv.title}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {conv.updated_at}
+                                                            </div>
+                                                        </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 hover:text-destructive"
+                                                            onClick={(e) => handleDeleteConversation(conv.id, e)}
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </Button>
+                                                    </DropdownMenuItem>
+                                                ))
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
 
-                                {/* New Chat Button */}
-                                <Button variant="ghost" size="icon" onClick={handleNewChat}>
-                                    <Plus className="h-5 w-5" />
-                                </Button>
+                                {/* New Chat Button - only for authenticated users */}
+                                {user && (
+                                    <Button variant="ghost" size="icon" onClick={handleNewChat}>
+                                        <Plus className="h-5 w-5" />
+                                    </Button>
+                                )}
 
                                 {/* Close Button */}
                                 <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
@@ -561,7 +605,7 @@ export function DentalChatBot() {
                                         <Bot className="h-7 w-7 text-primary" />
                                     </div>
                                     <h2 className="text-xl font-semibold mb-1">
-                                        Hi {auth.user?.name?.split(' ')[0] || 'there'},
+                                        Hi {user?.name?.split(' ')[0] || 'there'},
                                     </h2>
                                     <p className="text-2xl font-bold mb-3">Welcome back! How can I help?</p>
                                     <p className="text-sm text-muted-foreground mb-8 max-w-sm">
@@ -611,6 +655,7 @@ export function DentalChatBot() {
                                             </div>
                                             {message.role === 'user' && (
                                                 <Avatar className="h-8 w-8 flex-shrink-0">
+                                                    <AvatarImage src={user?.avatar_url || user?.avatar} alt={user?.name} />
                                                     <AvatarFallback>
                                                         <User className="h-4 w-4" />
                                                     </AvatarFallback>
@@ -640,6 +685,23 @@ export function DentalChatBot() {
                     </div>
 
                     <div className="px-4 pt-4 pb-8 bg-transparent space-y-4 relative z-10">
+                        {/* Suggested prompts for guests (shown above input when there are messages) */}
+                        {!user && messages.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {suggestions.map((suggestion, i) => (
+                                    <Button
+                                        key={i}
+                                        variant="outline"
+                                        size="sm"
+                                        className="rounded-full text-xs px-4 py-2 h-auto border-muted-foreground/20 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors"
+                                        onClick={() => handleSendMessage(suggestion)}
+                                        disabled={isLoading}
+                                    >
+                                        {suggestion}
+                                    </Button>
+                                ))}
+                            </div>
+                        )}
 
                         <form onSubmit={handleFormSubmit} className="flex gap-2">
                             <Input

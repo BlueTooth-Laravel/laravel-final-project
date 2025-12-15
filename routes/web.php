@@ -18,7 +18,7 @@ use Inertia\Inertia;
 // API routes for React frontend
 Route::get('/api/patients', [\App\Http\Controllers\Api\PatientController::class, 'index']);
 
-// AI Chat API endpoints
+// AI Chat API endpoints (authenticated users)
 Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
     // Rate limit chat endpoint: 30 requests per minute to prevent abuse
     Route::post('/api/chat', [ChatController::class, 'sendMessage'])
@@ -30,6 +30,11 @@ Route::middleware(['auth', 'verified', 'password.changed'])->group(function () {
     Route::delete('/api/chat/messages/{id}', [ChatController::class, 'deleteMessage'])->name('chat.message.delete');
     Route::delete('/api/chat/conversations/{id}/cancel', [ChatController::class, 'cancelLastMessage'])->name('chat.cancel');
 });
+
+// Guest chat endpoint (no auth, stricter rate limit: 5 requests per minute)
+Route::post('/api/chat/guest', [ChatController::class, 'sendGuestMessage'])
+    ->middleware('throttle:5,1')
+    ->name('chat.guest');
 
 Route::get('/', function () {
     return Inertia::render('welcome');

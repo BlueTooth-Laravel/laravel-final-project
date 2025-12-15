@@ -49,6 +49,33 @@ class GeminiChatService
     ) {}
 
     /**
+     * Safely extract text from a Gemini response.
+     * Handles multi-part responses that would cause text() to fail.
+     */
+    private function extractTextFromResponse($response): string
+    {
+        try {
+            // Try the simple accessor first
+            return $response->text();
+        } catch (\ValueError $e) {
+            // Response is multi-part, extract text from all parts
+            $textParts = [];
+            if (!empty($response->candidates)) {
+                foreach ($response->candidates as $candidate) {
+                    if (!empty($candidate->content->parts)) {
+                        foreach ($candidate->content->parts as $part) {
+                            if (isset($part->text)) {
+                                $textParts[] = $part->text;
+                            }
+                        }
+                    }
+                }
+            }
+            return implode("\n", $textParts) ?: 'I apologize, but I was unable to generate a proper response. Please try again.';
+        }
+    }
+
+    /**
      * Build system instruction with user context.
      */
     private function buildSystemInstruction($user): string
@@ -58,12 +85,24 @@ class GeminiChatService
         $instruction = self::BASE_SYSTEM_INSTRUCTION . " Today's date is {$currentDate}.";
 
         if ($user) {
-            $roleName = match ($user->role_id) {
-                1 => 'an administrator with full access to all functions including dentist management',
-                2 => 'a dentist who can view their own patients and appointments',
-                default => 'a guest user',
+            $roleContext = match ($user->role_id) {
+                1 => 'an administrator with full access to all query functions. IMPORTANT: Administrators do not have personal appointments, patients, or schedules. When an admin asks about "my appointments" or "my patients", explain that administrators don\'t have personal appointments and suggest they specify a patient or dentist name instead.',
+                2 => 'a dentist who can view their own patients and appointments. When they ask about "my patients" or "my schedule", use their personal data.',
+                default => 'a guest user with limited access',
             };
-            $instruction .= " The current user is {$user->name}, who is {$roleName}. You can directly use admin-only or role-specific functions without asking for confirmation since you already know their role.";
+            $instruction .= " The current user is {$user->name}, who is {$roleContext}. You can directly use role-appropriate functions without asking for confirmation.";
+
+            // Add capability description guidance based on role
+            $capabilityGuidance = match ($user->role_id) {
+                1 => ' When asked "what can you do?" or about your capabilities, ALWAYS respond using markdown bullet points. Describe ONLY the administrator-specific functions you have access to without mentioning role labels like "(for admin)" or "(for administrators)". List each capability as a separate bullet point: find appointments, get treatment info, check clinic hours, list all dentists, find dentists by specialization, view all patients in the system, find patients by dentist name, see who created appointments or entities, search audit logs, and view activity logs.',
+                2 => ' When asked "what can you do?" or about your capabilities, ALWAYS respond using markdown bullet points. Describe ONLY the dentist-specific functions you have access to without mentioning role labels like "(for dentist)" or "(for dentists)". List each capability as a separate bullet point: find appointments, get treatment info, check clinic hours, view your daily/weekly schedule, list your assigned patients, and see patients scheduled for this week.',
+                default => ' When asked "what can you do?" or about your capabilities, ALWAYS respond using markdown bullet points. Only mention the basic functions available: finding appointment info, getting treatment details, and checking clinic hours.',
+            };
+            $instruction .= $capabilityGuidance;
+        } else {
+            // Guest user (not authenticated)
+            $instruction .= ' The current user is a guest visitor. They have limited access to basic information only.';
+            $instruction .= ' When asked "what can you do?" or about your capabilities, ALWAYS respond using markdown bullet points. You can help guests with these functions: list all dental services and treatment types, get information about specific treatments (costs and duration), check clinic operating hours, list available dental specializations, and view our dentists with their specializations. Do NOT mention any appointment-related functions, patient lookup, or any features that require authentication.';
         }
 
         return $instruction;
@@ -177,7 +216,7 @@ class GeminiChatService
                     // Send the function result back to Gemini
                     $finalResponse = $chat->sendMessage($functionResponseContent);
 
-                    $responseText = $finalResponse->text();
+                    $responseText = $this->extractTextFromResponse($finalResponse);
 
                     // Store assistant message if user is authenticated
                     if ($user && $conversationId) {
@@ -195,7 +234,7 @@ class GeminiChatService
             }
 
             // No function call, return the direct text response
-            $responseText = $response->text();
+            $responseText = $this->extractTextFromResponse($response);
 
             // Store assistant message if user is authenticated
             if ($user && $conversationId) {
@@ -209,7 +248,10 @@ class GeminiChatService
                 'user_message_id' => $userMessageId,
             ];
         } catch (\Exception $e) {
-            // ... (error handling)
+            Log::error('Chat Error: ' . $e->getMessage(), [
+                'userId' => $user?->id,
+                'exception' => $e->getTraceAsString(),
+            ]);
             return [
                 'success' => false,
                 'response' => null,
@@ -299,7 +341,7 @@ class GeminiChatService
                 ),
                 new FunctionDeclaration(
                     name: 'getWeeklyPatients',
-                    description: 'Get list of unique patients scheduled for the current week. Dentists see only their own patients.',
+                    description: 'Get list of unique patients scheduled for the current week. DENTIST ONLY - use getPatientsByDentistName for admins.',
                     parameters: new Schema(
                         type: DataType::OBJECT,
                         properties: []
@@ -307,7 +349,7 @@ class GeminiChatService
                 ),
                 new FunctionDeclaration(
                     name: 'getDailySchedule',
-                    description: 'Get daily appointment schedule. Dentists see only their own schedule.',
+                    description: 'Get daily appointment schedule. DENTIST ONLY - for admins, use findNextAppointment with a patient name.',
                     parameters: new Schema(
                         type: DataType::OBJECT,
                         properties: [
@@ -342,7 +384,7 @@ class GeminiChatService
                 ),
                 new FunctionDeclaration(
                     name: 'getAllPatients',
-                    description: 'Get all patients assigned to the dentist (all time, not just this week). Dentists see only their own patients.',
+                    description: 'Get all patients assigned to the dentist. DENTIST ONLY - for admins, use getPatientsByDentistName instead.',
                     parameters: new Schema(type: DataType::OBJECT, properties: [])
                 ),
                 new FunctionDeclaration(
@@ -412,6 +454,211 @@ class GeminiChatService
                         required: ['entityName']
                     )
                 ),
+                new FunctionDeclaration(
+                    name: 'getAllAppointments',
+                    description: 'Get appointments. Admin only. Use period="all" to list all appointment records in the system, or filter by "today", "tomorrow", "week", "month", or a specific date.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'period' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Time period: "all" (all records), "today", "tomorrow", "week", "month", or a specific date like "2025-12-15".',
+                            ),
+                        ],
+                        required: ['period']
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'listAllPatients',
+                    description: 'List all patients in the system with their contact info and appointment counts. Admin only.',
+                    parameters: new Schema(type: DataType::OBJECT, properties: [])
+                ),
+                new FunctionDeclaration(
+                    name: 'searchActivityLogs',
+                    description: 'Search audit/activity logs by action type, module, or keyword. Admin only. Use for questions like "who removed the clinic availability?" or "show recent clinic management activity".',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'activity' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Activity type keyword: "Removed", "Created", "Updated", "Deleted" (optional).',
+                            ),
+                            'moduleType' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Module type: "clinic-management", "appointment-management", "user-management", "services-management" (optional).',
+                            ),
+                            'keyword' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Keyword to search in activity message or title (e.g., "availability", "Friday") (optional).',
+                            ),
+                        ]
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'listAllTreatments',
+                    description: 'List all available dental services and treatment types with their costs and durations. Use when asked about "services", "treatments", "what do you offer", etc. Available to all users including guests.',
+                    parameters: new Schema(type: DataType::OBJECT, properties: [])
+                ),
+                new FunctionDeclaration(
+                    name: 'listDentistSpecializations',
+                    description: 'List all dental specializations available at the clinic (e.g., Orthodontics, Endodontics, Pediatric Dentistry). Available to all users including guests.',
+                    parameters: new Schema(type: DataType::OBJECT, properties: [])
+                ),
+                new FunctionDeclaration(
+                    name: 'getDentistPublicInfo',
+                    description: 'Get list of dentists with their names and specializations. Use when guests ask "who are your dentists" or "list your dentists". Available to all users including guests. Does not expose contact info for privacy.',
+                    parameters: new Schema(type: DataType::OBJECT, properties: [])
+                ),
+                new FunctionDeclaration(
+                    name: 'findDentistAvailableSlots',
+                    description: 'Find the next available appointment slots for a specific dentist. Use when asked about when a dentist is available or has open slots. Admin only.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'dentistName' => new Schema(
+                                type: DataType::STRING,
+                                description: 'The dentist\'s name to search for available slots.',
+                            ),
+                            'period' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Time period to search: "today", "tomorrow", "week", "month", or a specific date (default: week).',
+                            ),
+                        ],
+                        required: ['dentistName']
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'getAppointmentStatistics',
+                    description: 'Get appointment statistics including total counts, completion rates, and cancellation rates. Admin only. Use when asked about "how many appointments", "completion rate", "statistics".',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'period' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Time period: "today", "week", "month", "year", or "all" (default: month).',
+                            ),
+                        ]
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'getPatientTreatmentHistory',
+                    description: 'Get treatment history for a specific patient - what treatments they have received. Admin/Dentist.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'patientName' => new Schema(
+                                type: DataType::STRING,
+                                description: 'The patient\'s name to get treatment history for.',
+                            ),
+                        ],
+                        required: ['patientName']
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'getPopularTreatments',
+                    description: 'Get the most popular/requested treatments ranked by count. Admin only. Use when asked "what are the most popular treatments" or "which treatments are requested most".',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'period' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Time period: "week", "month", "year", or "all" (default: month).',
+                            ),
+                        ]
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'getPatientDetails',
+                    description: 'Get full patient profile including contact info, demographics, and appointment statistics. Admin/Dentist. Use when asked for patient details or contact information.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'patientName' => new Schema(
+                                type: DataType::STRING,
+                                description: 'The patient\'s name to get details for.',
+                            ),
+                        ],
+                        required: ['patientName']
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'getRevenueEstimate',
+                    description: 'Get estimated revenue/income from completed appointments. Admin only. Use when asked "how much is our income", "what is the revenue", "earnings this month".',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'period' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Time period: "today", "week", "month", "year", or "all" (default: month).',
+                            ),
+                        ]
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'getDentistPerformance',
+                    description: 'Get dentist performance metrics - appointments completed and unique patients seen. Admin only. Use when asked "who is the busiest dentist" or "dentist performance".',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'period' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Time period: "week", "month", "year", or "all" (default: month).',
+                            ),
+                        ]
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'getTreatmentNotes',
+                    description: 'Get treatment notes for a patient. Admin sees all notes, dentists see only their own. Use for "what were the treatment notes for patient X".',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'patientName' => new Schema(
+                                type: DataType::STRING,
+                                description: 'The patient\'s name to get treatment notes for.',
+                            ),
+                        ],
+                        required: ['patientName']
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'getUpcomingBusyPeriods',
+                    description: 'Find the busiest days and times for upcoming scheduled appointments. Admin only. Use when asked "when is the clinic busiest" or "what are our busiest days".',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'period' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Time period to analyze: "week" or "month" (default: week).',
+                            ),
+                        ]
+                    )
+                ),
+                new FunctionDeclaration(
+                    name: 'searchPatients',
+                    description: 'Search patients by name, gender, or age range. Admin/Dentist. Use when asked to find or filter patients.',
+                    parameters: new Schema(
+                        type: DataType::OBJECT,
+                        properties: [
+                            'name' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Patient name to search for (optional).',
+                            ),
+                            'gender' => new Schema(
+                                type: DataType::STRING,
+                                description: 'Filter by gender: "Male" or "Female" (optional).',
+                            ),
+                            'minAge' => new Schema(
+                                type: DataType::INTEGER,
+                                description: 'Minimum age filter (optional).',
+                            ),
+                            'maxAge' => new Schema(
+                                type: DataType::INTEGER,
+                                description: 'Maximum age filter (optional).',
+                            ),
+                        ]
+                    )
+                ),
             ]
         );
     }
@@ -450,6 +697,22 @@ class GeminiChatService
             'findAppointmentCreator' => $this->executeFindAppointmentCreator($argsArray, $user),
             'searchAuditLogs' => $this->executeSearchAuditLogs($argsArray, $user),
             'findEntityCreator' => $this->executeFindEntityCreator($argsArray, $user),
+            'getAllAppointments' => $this->executeGetAllAppointments($argsArray, $user),
+            'listAllPatients' => $this->executeListAllPatients($user),
+            'searchActivityLogs' => $this->executeSearchActivityLogs($argsArray, $user),
+            'listAllTreatments' => $this->executeListAllTreatments(),
+            'listDentistSpecializations' => $this->executeListDentistSpecializations(),
+            'getDentistPublicInfo' => $this->executeGetDentistPublicInfo(),
+            'findDentistAvailableSlots' => $this->executeFindDentistAvailableSlots($argsArray, $user),
+            'getAppointmentStatistics' => $this->executeGetAppointmentStatistics($argsArray, $user),
+            'getPatientTreatmentHistory' => $this->executeGetPatientTreatmentHistory($argsArray, $user),
+            'getPopularTreatments' => $this->executeGetPopularTreatments($argsArray, $user),
+            'getPatientDetails' => $this->executeGetPatientDetails($argsArray, $user),
+            'getRevenueEstimate' => $this->executeGetRevenueEstimate($argsArray, $user),
+            'getDentistPerformance' => $this->executeGetDentistPerformance($argsArray, $user),
+            'getTreatmentNotes' => $this->executeGetTreatmentNotes($argsArray, $user),
+            'getUpcomingBusyPeriods' => $this->executeGetUpcomingBusyPeriods($argsArray, $user),
+            'searchPatients' => $this->executeSearchPatients($argsArray, $user),
             default => ['error' => "Unknown function: {$functionCall->name}"],
         };
     }
@@ -531,7 +794,9 @@ class GeminiChatService
     private function executeGetWeeklyPatients($user): array
     {
         if (!$user) return ['error' => 'Authentication required.'];
-        if ($user->role_id !== 2) return ['error' => 'This function is only available to dentists.'];
+        if ($user->role_id !== 2) {
+            return ['error' => 'As an administrator, you do not have personal patients. Use "list all patients that has appointments with [dentist name]" to view a specific dentist\'s patients.'];
+        }
 
         $patients = $this->appointmentService->getWeeklyPatients($user->id);
 
@@ -548,7 +813,9 @@ class GeminiChatService
     private function executeGetDailySchedule(array $args, $user): array
     {
         if (!$user) return ['error' => 'Authentication required.'];
-        if ($user->role_id !== 2) return ['error' => 'This function is only available to dentists.'];
+        if ($user->role_id !== 2) {
+            return ['error' => 'As an administrator, you do not have personal appointments. Use "find next appointment for [patient name]" or query specific dentist schedules.'];
+        }
 
         $date = $args['date'] ?? null;
         $schedule = $this->appointmentService->getDailySchedule($user->id, $date);
@@ -601,7 +868,7 @@ class GeminiChatService
 
         // Only dentists can view their patient list
         if ($user->role_id !== 2) {
-            return ['error' => 'This function is only available to dentists.'];
+            return ['error' => 'As an administrator, you do not have personal patients. Use "list all patients that has appointments with [dentist name]" to view a specific dentist\'s patients.'];
         }
 
         $patients = $this->appointmentService->getAllPatients($user->id);
@@ -666,5 +933,200 @@ class GeminiChatService
         if (empty($entityName)) return ['error' => 'Entity name is required.'];
 
         return $this->auditService->findEntityCreator($entityName);
+    }
+
+    private function executeGetAllAppointments(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $period = $args['period'] ?? 'today';
+
+        return $this->appointmentService->getAllAppointmentsByDateRange($period);
+    }
+
+    private function executeListAllPatients($user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        return $this->appointmentService->listAllPatients();
+    }
+
+    private function executeSearchActivityLogs(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $activity = $args['activity'] ?? null;
+        $moduleType = $args['moduleType'] ?? null;
+        $keyword = $args['keyword'] ?? null;
+
+        // If no parameters provided, show recent activity
+        if (!$activity && !$moduleType && !$keyword) {
+            return ['error' => 'Please specify at least one search parameter: activity type (e.g., "Removed"), module type (e.g., "clinic-management"), or keyword (e.g., "availability").'];
+        }
+
+        return $this->auditService->searchByActivity($activity, $moduleType, $keyword);
+    }
+
+    private function executeListAllTreatments(): array
+    {
+        $treatments = $this->treatmentService->listActiveTreatments();
+
+        if ($treatments->isEmpty()) {
+            return ['found' => false, 'message' => 'No treatments available at this time.'];
+        }
+
+        return [
+            'found' => true,
+            'total' => $treatments->count(),
+            'treatments' => $treatments->map(function ($t) {
+                return [
+                    'name' => $t->name,
+                    'description' => $t->description,
+                    'cost' => $t->standard_cost,
+                    'duration' => $t->duration_minutes . ' minutes'
+                ];
+            })->toArray()
+        ];
+    }
+
+    private function executeListDentistSpecializations(): array
+    {
+        $specializations = $this->dentistService->listSpecializations();
+
+        if ($specializations->isEmpty()) {
+            return ['found' => false, 'message' => 'No specializations available.'];
+        }
+
+        return [
+            'found' => true,
+            'total' => $specializations->count(),
+            'specializations' => $specializations->toArray()
+        ];
+    }
+
+    private function executeGetDentistPublicInfo(): array
+    {
+        $dentists = $this->dentistService->listDentistsPublic();
+
+        if ($dentists->isEmpty()) {
+            return ['found' => false, 'message' => 'No dentists available at this time.'];
+        }
+
+        return [
+            'found' => true,
+            'total' => $dentists->count(),
+            'dentists' => $dentists->toArray()
+        ];
+    }
+
+    private function executeFindDentistAvailableSlots(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $dentistName = $args['dentistName'] ?? '';
+        if (empty($dentistName)) return ['error' => 'Dentist name is required.'];
+
+        $period = $args['period'] ?? 'week';
+
+        return $this->appointmentService->findNextAvailableSlot($dentistName, $period);
+    }
+
+    private function executeGetAppointmentStatistics(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $period = $args['period'] ?? 'month';
+        return $this->appointmentService->getAppointmentStatistics($period);
+    }
+
+    private function executeGetPatientTreatmentHistory(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+
+        $patientName = $args['patientName'] ?? '';
+        if (empty($patientName)) return ['error' => 'Patient name is required.'];
+
+        // Dentists can only see their own patients
+        $dentistId = ($user->role_id === 2) ? $user->id : null;
+        return $this->appointmentService->getPatientTreatmentHistory($patientName, $dentistId);
+    }
+
+    private function executeGetPopularTreatments(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $period = $args['period'] ?? 'month';
+        return $this->appointmentService->getPopularTreatments($period);
+    }
+
+    private function executeGetPatientDetails(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+
+        $patientName = $args['patientName'] ?? '';
+        if (empty($patientName)) return ['error' => 'Patient name is required.'];
+
+        return $this->appointmentService->getPatientDetails($patientName);
+    }
+
+    private function executeGetRevenueEstimate(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $period = $args['period'] ?? 'month';
+        return $this->appointmentService->getRevenueEstimate($period);
+    }
+
+    private function executeGetDentistPerformance(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $period = $args['period'] ?? 'month';
+        return $this->appointmentService->getDentistPerformance($period);
+    }
+
+    private function executeGetTreatmentNotes(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+
+        $patientName = $args['patientName'] ?? '';
+        if (empty($patientName)) return ['error' => 'Patient name is required.'];
+
+        // Dentists can only see their own notes
+        $dentistId = ($user->role_id === 2) ? $user->id : null;
+        return $this->appointmentService->getTreatmentNotes($patientName, $dentistId);
+    }
+
+    private function executeGetUpcomingBusyPeriods(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+        if ($user->role_id !== 1) return ['error' => 'Permission denied. This function is only available to administrators.'];
+
+        $period = $args['period'] ?? 'week';
+        return $this->appointmentService->getUpcomingBusyPeriods($period);
+    }
+
+    private function executeSearchPatients(array $args, $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+
+        $criteria = [
+            'name' => $args['name'] ?? null,
+            'gender' => $args['gender'] ?? null,
+            'minAge' => $args['minAge'] ?? null,
+            'maxAge' => $args['maxAge'] ?? null,
+        ];
+
+        // Dentists only see their own patients
+        $dentistId = ($user->role_id === 2) ? $user->id : null;
+        return $this->appointmentService->searchPatients($criteria, $dentistId);
     }
 }

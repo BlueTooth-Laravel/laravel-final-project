@@ -218,4 +218,68 @@ class AuditService
             'created_at' => $createLog->created_at->format('M j, Y g:i A'),
         ];
     }
+
+    /**
+     * Search audit logs by activity title, module type, or action keywords.
+     * This is useful for questions like "who removed the clinic availability?"
+     *
+     * @param string|null $activity Activity title keyword (e.g., "Removed", "Created", "Updated")
+     * @param string|null $moduleType Module type (e.g., "clinic-management", "appointment-management")
+     * @param string|null $keyword Keyword to search in message or activity title
+     * @return array
+     */
+    public function searchByActivity(?string $activity = null, ?string $moduleType = null, ?string $keyword = null): array
+    {
+        $query = AdminAudit::with('admin')
+            ->orderBy('created_at', 'desc')
+            ->limit(10);
+
+        if ($activity) {
+            // PostgreSQL requires quoted column names for camelCase
+            $query->whereRaw('"activityTitle" ILIKE ?', ["%{$activity}%"]);
+        }
+
+        if ($moduleType) {
+            // Normalize common module names
+            $normalizedModule = strtolower(str_replace(' ', '-', $moduleType));
+            $query->whereRaw('"moduleType" ILIKE ?', ["%{$normalizedModule}%"]);
+        }
+
+        if ($keyword) {
+            $searchTerm = "%{$keyword}%";
+            $query->where(function ($q) use ($searchTerm) {
+                $q->whereRaw('"message" ILIKE ?', [$searchTerm])
+                    ->orWhereRaw('"activityTitle" ILIKE ?', [$searchTerm]);
+            });
+        }
+
+        $logs = $query->get();
+
+        if ($logs->isEmpty()) {
+            $searchDesc = [];
+            if ($activity) $searchDesc[] = "activity '{$activity}'";
+            if ($moduleType) $searchDesc[] = "module '{$moduleType}'";
+            if ($keyword) $searchDesc[] = "keyword '{$keyword}'";
+            
+            return [
+                'found' => false,
+                'message' => "No audit logs found for " . implode(' and ', $searchDesc) . ".",
+            ];
+        }
+
+        return [
+            'found' => true,
+            'count' => $logs->count(),
+            'logs' => $logs->map(function ($log) {
+                return [
+                    'action' => $log->activityTitle,
+                    'performed_by' => $log->admin?->name ?? 'Unknown User',
+                    'role' => $log->admin?->role_id === 1 ? 'Admin' : ($log->admin?->role_id === 2 ? 'Dentist' : 'Unknown'),
+                    'message' => $log->message,
+                    'module' => $log->moduleType,
+                    'date' => $log->created_at->format('M j, Y g:i A'),
+                ];
+            })->toArray(),
+        ];
+    }
 }

@@ -5,6 +5,8 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme, ThemeProvider } from './hooks/use-appearance';
 import { AnimatedScrollbar } from '@/components/ui/animated-scrollbar';
+import { ChatProvider } from '@/contexts/chat-context';
+import { DentalChatBot } from '@/components/dental-chat-bot';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -20,8 +22,11 @@ createInertiaApp({
 
         root.render(
             <ThemeProvider>
-                <AnimatedScrollbar />
-                <App {...props} />
+                <ChatProvider>
+                    <AnimatedScrollbar />
+                    <App {...props} />
+                    <DentalChatBot />
+                </ChatProvider>
             </ThemeProvider>,
         );
     },

@@ -299,4 +299,41 @@ class DentistService
                 ];
             });
     }
+
+    /**
+     * List all available specializations for public/guest access.
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function listSpecializations(): \Illuminate\Support\Collection
+    {
+        return \App\Models\Specialization::query()
+            ->select('name')
+            ->orderBy('name')
+            ->get()
+            ->pluck('name');
+    }
+
+    /**
+     * List dentists with public info only (name and specializations only).
+     * For guest users - no contact info exposed.
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function listDentistsPublic(): \Illuminate\Support\Collection
+    {
+        return User::query()
+            ->where('role_id', 2) // Dentist role
+            ->whereHas('dentistProfile', function ($query) {
+                $query->where('employment_status', 'Active');
+            })
+            ->with(['specializations'])
+            ->get()
+            ->map(function ($dentist) {
+                return [
+                    'name' => 'Dr. ' . $dentist->name,
+                    'specializations' => $dentist->specializations->pluck('name')->join(', ') ?: 'General Dentistry'
+                ];
+            });
+    }
 }

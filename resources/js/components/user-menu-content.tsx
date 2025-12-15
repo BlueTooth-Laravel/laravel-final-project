@@ -5,6 +5,7 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
+import { useChatContext } from '@/contexts/chat-context';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
@@ -18,9 +19,11 @@ interface UserMenuContentProps {
 
 export function UserMenuContent({ user }: UserMenuContentProps) {
     const cleanup = useMobileNavigation();
+    const { resetSession } = useChatContext();
 
     const handleLogout = () => {
         cleanup();
+        resetSession(); // Close and clear AI chat session
         router.flushAll();
     };
 

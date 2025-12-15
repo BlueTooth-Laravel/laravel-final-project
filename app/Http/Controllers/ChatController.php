@@ -47,6 +47,35 @@ class ChatController extends Controller
     }
 
     /**
+     * Handle guest chat messages (no auth, no history).
+     * Rate limited to 5 requests per minute.
+     */
+    public function sendGuestMessage(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $result = $this->geminiChatService->handleChat(
+            $validated['message'],
+            null, // No conversation persistence for guests
+            null  // No user context for guests
+        );
+
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'error' => $result['error'] ?? 'An unknown error occurred.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'response' => $result['response'],
+        ]);
+    }
+
+    /**
      * Get list of conversations for the authenticated user.
      */
     public function getConversations(Request $request): JsonResponse

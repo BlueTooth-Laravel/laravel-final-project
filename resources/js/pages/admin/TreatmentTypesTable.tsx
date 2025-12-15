@@ -299,6 +299,7 @@ export default function TreatmentTypesTable({
                 const formatted = new Intl.NumberFormat('en-PH', {
                     style: 'currency',
                     currency: 'PHP',
+                    currencyDisplay: 'symbol',
                 }).format(amount);
                 return <div className="font-medium">{formatted}</div>;
             },
@@ -459,7 +460,12 @@ export default function TreatmentTypesTable({
                                                         *
                                                     </span>
                                                 </FieldLabel>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                                    ₱
+                                                </span>
                                                 <Input
+                                                    className="pl-7"
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
@@ -501,6 +507,7 @@ export default function TreatmentTypesTable({
                                                     placeholder="0.00"
                                                     required
                                                 />
+                                            </div>
                                                 <FieldError
                                                     errors={[
                                                         {
