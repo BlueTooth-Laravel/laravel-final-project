@@ -57,6 +57,7 @@ interface TreatmentRecord {
     treatment_notes: string | null;
     files: FileRecord[];
     teeth: Tooth[];
+    price: number;
     created_at: string;
 }
 
@@ -77,6 +78,7 @@ interface Appointment {
     purpose_of_appointment: string | null;
     cancellation_reason: string | null;
     treatment_records: TreatmentRecord[];
+    total_amount: number;
     created_at: string;
 }
 
@@ -144,16 +146,6 @@ export default function ShowAppointment({ appointment }: ShowAppointmentProps) {
 
 
     const isScheduled = appointment.status === 'Scheduled';
-
-    // Calculate price for a treatment record based on is_per_tooth flag
-    const calculatePrice = (record: TreatmentRecord): number => {
-        const baseCost = Number(record.treatment_type?.standard_cost) || 0;
-        const isPerTooth = record.treatment_type?.is_per_tooth ?? false;
-        const teethCount = record.teeth.length;
-        
-        // If per-tooth and teeth are recorded, multiply by teeth count (minimum 1)
-        return isPerTooth && teethCount > 0 ? baseCost * teethCount : baseCost;
-    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -308,7 +300,7 @@ export default function ShowAppointment({ appointment }: ShowAppointmentProps) {
                                                 <TableCell className="text-right">
                                                     {record.treatment_type?.standard_cost != null ? (
                                                         <div className="flex flex-col items-end">
-                                                            <span>₱{calculatePrice(record).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                                            <span>₱{record.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
                                                             {record.treatment_type?.is_per_tooth && record.teeth.length > 0 && (
                                                                 <span className="text-xs text-muted-foreground">
                                                                     (₱{Number(record.treatment_type.standard_cost).toLocaleString('en-PH', { minimumFractionDigits: 2 })} × {record.teeth.length} teeth)
@@ -354,9 +346,7 @@ export default function ShowAppointment({ appointment }: ShowAppointmentProps) {
                                                 <div className="flex items-center justify-end gap-2">
                                                     <span className="font-medium text-muted-foreground whitespace-nowrap">Total Amount:</span>
                                                     <span className="font-bold text-lg">
-                                                        ₱{appointment.treatment_records
-                                                            .reduce((sum, record) => sum + calculatePrice(record), 0)
-                                                            .toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                        ₱{appointment.total_amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                                                     </span>
                                                 </div>
                                             </TableCell>
