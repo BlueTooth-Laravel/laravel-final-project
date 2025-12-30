@@ -35,7 +35,7 @@ import {
     Tag,
     Users,
 } from 'lucide-react';
-import { Bone } from 'lucide-react';
+import { FaTooth } from 'react-icons/fa';
 import AppLogo from './app-logo';
 import { useAppearance } from '@/hooks/use-appearance';
 
@@ -46,7 +46,7 @@ const ROLE_DENTIST = 2;
 interface ServiceSubItem {
     title: string;
     href: string;
-    icon: typeof Tag;
+    icon: any;
 }
 
 const servicesSubItems: ServiceSubItem[] = [
@@ -63,7 +63,7 @@ const servicesSubItems: ServiceSubItem[] = [
     {
         title: 'Teeth Config',
         href: '/admin/teeth',
-        icon: Bone,
+        icon: FaTooth,
     },
 ];
 
