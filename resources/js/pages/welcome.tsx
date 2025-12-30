@@ -494,7 +494,7 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
 
                             {/* Section 2: Services - The Menu of Transparency */}
                             <section
-                                className="relative flex h-full w-full flex-shrink-0 snap-start snap-always flex-col bg-brand-light"
+                                className="relative flex min-h-full h-auto w-full flex-shrink-0 snap-start snap-always flex-col bg-brand-light"
                                 style={{ boxShadow: '0 -2px 0 0 var(--color-brand-light, #f6f6f7), 0 2px 0 0 var(--color-brand-light, #f6f6f7)' }}
                             >
                                 <div className="flex flex-1 flex-col gap-4 px-4 py-8 text-brand-dark sm:gap-6 sm:px-6 sm:py-10 md:px-10 lg:px-14 xl:px-16">
@@ -671,33 +671,36 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
 
                             {/* Section 5: Credits - The Producers */}
                             <section
-                                className="relative flex h-full w-full flex-shrink-0 snap-start snap-always flex-col bg-brand-light"
+                                className="relative flex min-h-full h-auto w-full flex-shrink-0 snap-start snap-always flex-col bg-brand-light"
                                 style={{ boxShadow: '0 -2px 0 0 var(--color-brand-light, #f6f6f7), 0 2px 0 0 var(--color-brand-light, #f6f6f7)' }}
                             >
-                                <div className="flex flex-1 flex-col items-center justify-start px-4 pt-10 pb-8 text-brand-dark sm:px-6 sm:pt-16 sm:pb-10 md:px-10 lg:px-14 xl:px-16">
-                                    <div className="w-full max-w-4xl text-center">
-                                        {/* Masthead Title */}
-                                        <p className="mb-2 text-xs font-medium uppercase tracking-widest text-brand-blue sm:text-sm">THE CODE WIZARDS</p>
-                                        <h2 className="mb-4 text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>
-                                            BlueTooth Dental
-                                        </h2>
-                                        <p className="mx-auto mb-8 max-w-2xl text-xs italic leading-relaxed text-brand-dark/60 sm:mb-10 sm:text-sm md:text-base" style={{ fontFamily: 'Playfair Display, serif' }}>
-                                            "Engineered to bridge the gap between patient anxiety and clinical efficiency."
-                                        </p>
+                                <div className="flex flex-1 flex-col items-center justify-center px-4 pt-10 pb-8 text-brand-dark sm:px-6 sm:pt-16 sm:pb-10 md:px-10 lg:px-14 xl:px-16">
+                                    <div className="flex w-full max-w-5xl flex-1 flex-col justify-between text-center">
+                                        <div>
+                                            {/* Masthead Title */}
+                                            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-brand-blue sm:text-sm">THE CODE WIZARDS</p>
+                                            <h2 className="mb-4 text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>
+                                                BlueTooth Dental
+                                            </h2>
+                                            <p className="mx-auto mb-8 max-w-2xl text-xs italic leading-relaxed text-brand-dark/60 sm:mb-10 sm:text-sm md:text-base" style={{ fontFamily: 'Playfair Display, serif' }}>
+                                                "Engineered to bridge the gap between patient anxiety and clinical efficiency."
+                                            </p>
+                                        </div>
 
                                         {/* Developer Cards */}
-                                        <div className="mt-60 grid grid-cols-1 gap-12 sm:grid-cols-2 sm:gap-10 md:gap-12">
+                                        <div className="flex flex-1 items-center justify-center pb-8 pt-[12vh] lg:pb-12 lg:pt-[15vh]">
+                                            <div className="grid w-full grid-cols-1 gap-12 sm:grid-cols-2 sm:gap-16 md:gap-20 lg:gap-24">
                                             {/* Michael Castillo - Lead Architect */}
                                             <div className="group relative">
                                                 {/* The Peeking Photo - Z-0 (Behind) */}
-                                                <div className="absolute left-1/2 -top-48 z-0 h-56 w-auto -translate-x-1/2 transition-transform duration-500 ease-in-out group-hover:-translate-y-4 group-hover:scale-110">
+                                                <div className="absolute left-1/2 -top-[22vh] z-0 h-[25vh] w-auto -translate-x-1/2 transition-transform duration-500 ease-in-out group-hover:-translate-y-4 group-hover:scale-110">
                                                     <img src="/michael.png" alt="Michael Castillo" className="h-full w-auto object-contain drop-shadow-2xl" />
                                                 </div>
 
                                                 {/* The Card - Z-10 (Front) */}
-                                                <div className="relative z-10 flex flex-col items-center rounded-2xl border border-brand-dark/5 bg-white p-6 text-center shadow-sm transition-all duration-300 group-hover:shadow-xl sm:rounded-3xl sm:p-8">
+                                                <div className="relative z-10 mx-auto flex w-full max-w-sm flex-col items-center rounded-2xl border border-brand-dark/5 bg-white p-5 text-center shadow-sm transition-all duration-300 group-hover:shadow-xl sm:rounded-3xl sm:p-6">
                                                     <h3 className="mb-1 text-xl font-bold sm:text-2xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>Michael Castillo</h3>
-                                                    <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand-blue sm:text-sm">MAIN BACKEND</p>
+                                                    <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand-blue sm:text-sm">BACKEND</p>
                                                     <p className="text-xs text-brand-dark/60 sm:text-sm">The Backbone — Security, Speed, and Infrastructure</p>
                                                     
                                                     {/* Social Links */}
@@ -721,14 +724,14 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                                             {/* Cairos Magno - Head of Experience */}
                                             <div className="group relative">
                                                 {/* The Peeking Photo - Z-0 (Behind) */}
-                                                <div className="absolute left-1/2 -top-48 z-0 h-56 w-auto -translate-x-1/2 transition-transform duration-500 ease-in-out group-hover:-translate-y-4 group-hover:scale-110">
+                                                <div className="absolute left-1/2 -top-[22vh] z-0 h-[25vh] w-auto -translate-x-1/2 transition-transform duration-500 ease-in-out group-hover:-translate-y-4 group-hover:scale-110">
                                                     <img src="/cairos.png" alt="Cairos Magno" className="h-full w-auto object-contain drop-shadow-2xl" />
                                                 </div>
 
                                                 {/* The Card - Z-10 (Front) */}
-                                                <div className="relative z-10 flex flex-col items-center rounded-2xl border border-brand-dark/5 bg-white p-6 text-center shadow-sm transition-all duration-300 group-hover:shadow-xl sm:rounded-3xl sm:p-8">
+                                                <div className="relative z-10 mx-auto flex w-full max-w-sm flex-col items-center rounded-2xl border border-brand-dark/5 bg-white p-5 text-center shadow-sm transition-all duration-300 group-hover:shadow-xl sm:rounded-3xl sm:p-6">
                                                     <h3 className="mb-1 text-xl font-bold sm:text-2xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>Cairos Magno</h3>
-                                                    <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand-blue sm:text-sm">MAIN FRONTEND</p>
+                                                    <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand-blue sm:text-sm">FRONTEND</p>
                                                     <p className="text-xs text-brand-dark/60 sm:text-sm">The Soul — Design, Flow, and Human Interaction</p>
 
                                                     {/* Social Links */}
@@ -750,10 +753,14 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                                             </div>
                                         </div>
 
+                                        </div>
+                                        
                                         {/* Footer Note */}
-                                        <p className="mt-8 text-[10px] text-brand-dark/40 sm:mt-10 sm:text-xs">
-                                            © {new Date().getFullYear()} BlueTooth Dental Clinic. Crafted with care in Manila, Philippines.
-                                        </p>
+                                        <div className="mt-auto">
+                                            <p className="text-[10px] text-brand-dark/40 sm:text-xs">
+                                                © {new Date().getFullYear()} BlueTooth Dental Clinic. Crafted with care in Manila, Philippines.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </section>

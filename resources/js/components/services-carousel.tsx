@@ -180,7 +180,7 @@ export const ServicesCarousel: React.FC<ServicesCarouselProps> = ({
       >
         {treatments.map((treatment) => (
           <SwiperSlide key={treatment.id}>
-            <div className="service-card group relative flex h-full min-h-[300px] flex-col overflow-hidden rounded-2xl border border-brand-dark/5 bg-white shadow-lg transition-all duration-400 sm:min-h-[340px] sm:rounded-3xl md:min-h-[360px] lg:min-h-[380px]">
+            <div className="service-card group relative flex h-full min-h-[45vh] flex-col overflow-hidden rounded-2xl border border-brand-dark/5 bg-white shadow-lg transition-all duration-400 sm:rounded-3xl">
               {/* Card Header with Icon */}
               <div className="flex items-center justify-between p-4 pb-0 sm:p-5 sm:pb-0 md:p-6 md:pb-0">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-blue/10 text-brand-blue transition-all duration-300 sm:h-14 sm:w-14 group-hover:bg-brand-blue group-hover:text-white">
