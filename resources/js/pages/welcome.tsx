@@ -1,4 +1,4 @@
-import { dashboard, login, register } from '@/routes';
+import { dashboard, login } from '@/routes';
 import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import gsap from 'gsap';
@@ -62,9 +62,10 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
     const isOurTextRef = useRef<HTMLSpanElement>(null);
     const heartIconRef = useRef<HTMLSpanElement>(null);
     const careTextRef = useRef<HTMLSpanElement>(null);
-    const ctaButtonRef = useRef<HTMLAnchorElement>(null);
+    const ctaButtonRef = useRef<HTMLButtonElement>(null);
     const ctaShineRef = useRef<HTMLSpanElement>(null);
-    const bestDealsRef = useRef<HTMLDivElement>(null);
+
+
 
     // Hero entrance animations
     useLayoutEffect(() => {
@@ -114,10 +115,7 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                 opacity: 0,
             });
 
-            gsap.set(bestDealsRef.current, {
-                opacity: 0,
-                y: 30,
-            });
+
 
             // Create main timeline
             const tl = gsap.timeline({
@@ -209,12 +207,7 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                 duration: 0.2,
             }, '-=0.1');
 
-            // 9. Best Deals section fades in
-            tl.to(bestDealsRef.current, {
-                opacity: 1,
-                y: 0,
-                duration: 0.6,
-            }, '-=0.2');
+
 
         }, heroContentRef);
 
@@ -358,6 +351,31 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                         {/* Custom Chat Bot Button via explicit placement */}
                         <DentalChatBot className="absolute bottom-3 right-3 z-50 shadow-lg" />
 
+                        {/* "Try Me" Indicator - Only visible on AI Chat section */}
+                        <div 
+                            className={`pointer-events-none absolute bottom-12 right-16 z-40 transition-all duration-500 sm:bottom-16 sm:right-24 ${
+                                currentSection === 3 ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+                            }`}
+                        >
+                            <div className="flex animate-bounce flex-col items-end">
+                                <span className="mr-2 rotate-[-10deg] text-lg font-bold italic text-brand-blue sm:text-xl" style={{ fontFamily: 'Playfair Display, serif' }}>
+                                    Try me!
+                                </span>
+                                <svg 
+                                    className="h-8 w-8 text-brand-dark/80 sm:h-10 sm:w-10" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M19 5L20 18L9 20" />
+                                    <path d="M20 18C14 18 6 12 3 5" />
+                                </svg>
+                            </div>
+                        </div>
+
                         {/* Scrollable Inner Content - The "TV Screen" */}
                         <div
                             ref={scrollContainerRef}
@@ -433,13 +451,13 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                                                 <span ref={careTextRef} className="font-display text-[clamp(1.75rem,5vw,6rem)] font-bold leading-[1.1] text-brand-dark sm:leading-[1.08] md:leading-[1.05]">
                                                     Care
                                                 </span>
-                                                <Link
+                                                <button
                                                     ref={ctaButtonRef}
-                                                    href={register()}
+                                                    onClick={() => scrollToSection(1)}
                                                     className="relative inline-flex items-center justify-center overflow-hidden rounded-full bg-brand-blue px-4 py-2 text-xs font-semibold text-white shadow-xl transition-all duration-200 hover:shadow-2xl hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue/60 sm:px-5 sm:py-2.5 sm:text-sm md:px-6 md:py-3 md:text-base lg:px-8 lg:py-3.5 lg:text-lg xl:px-10 xl:py-4 xl:text-xl"
                                                     style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
                                                 >
-                                                    <span className="relative z-10">Book Your Appointment Online</span>
+                                                    <span className="relative z-10">Learn More</span>
                                                     {/* Shine overlay */}
                                                     <span
                                                         ref={ctaShineRef}
@@ -447,124 +465,16 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                                                         className="pointer-events-none absolute inset-0 z-20 bg-gradient-to-r from-transparent via-white/40 to-transparent"
                                                         style={{ width: '50%' }}
                                                     />
-                                                </Link>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Best Deals Section - Pinned to bottom */}
-                                    <div ref={bestDealsRef} className="mt-auto flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6 lg:gap-8">
-                                        <div className="flex flex-row items-center justify-between gap-2 sm:flex-col sm:items-start">
-                                            <h2 className="text-lg font-bold text-brand-dark sm:text-xl md:text-2xl lg:text-3xl">
-                                                Best Deals
-                                            </h2>
-                                            <Link
-                                                href="#"
-                                                className="text-xs font-medium text-brand-dark underline opacity-60 hover:opacity-100 lg:text-sm"
-                                            >
-                                                View all services
-                                            </Link>
-                                        </div>
 
-                                        <div className="grid flex-1 grid-cols-1 gap-3 xs:grid-cols-2 sm:gap-4 md:grid-cols-3">
-                                            {/* Card 1 - Online Consultations */}
-                                            <div className="group relative overflow-hidden rounded-xl bg-brand-dark p-4 text-brand-light transition-transform hover:scale-105 sm:rounded-2xl sm:p-5 lg:rounded-3xl lg:p-6">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
-                                                        <div className="mb-1 text-[10px] font-medium opacity-60 sm:text-xs">
-                                                            1
-                                                        </div>
-                                                        <h3 className="text-base font-bold leading-tight sm:text-lg lg:text-xl">
-                                                            Online
-                                                            <br />
-                                                            Consultations
-                                                        </h3>
-                                                    </div>
-                                                    <button className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-white/20 transition-colors hover:bg-white/10 sm:h-8 sm:w-8 lg:h-9 lg:w-9">
-                                                        <svg
-                                                            className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-5 lg:w-5"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                strokeLinecap="round"
-                                                                strokeLinejoin="round"
-                                                                strokeWidth={2}
-                                                                d="M12 4v16m8-8H4"
-                                                            />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Card 2 - Best Dentists */}
-                                            <div className="group relative overflow-hidden rounded-xl bg-brand-gray p-4 transition-transform hover:scale-105 sm:rounded-2xl sm:p-5 lg:rounded-3xl lg:p-6">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
-                                                        <div className="mb-1 text-[10px] font-medium text-brand-dark opacity-60 sm:text-xs">
-                                                            2
-                                                        </div>
-                                                        <h3 className="text-base font-bold leading-tight text-brand-dark sm:text-lg lg:text-xl">
-                                                            Best
-                                                            <br />
-                                                            Dentists
-                                                        </h3>
-                                                    </div>
-                                                    <button className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-brand-dark/20 transition-colors hover:bg-black/5 sm:h-8 sm:w-8 lg:h-9 lg:w-9">
-                                                        <svg
-                                                            className="h-3.5 w-3.5 text-brand-dark sm:h-4 sm:w-4 lg:h-5 lg:w-5"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                strokeLinecap="round"
-                                                                strokeLinejoin="round"
-                                                                strokeWidth={2}
-                                                                d="M12 4v16m8-8H4"
-                                                            />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Card 3 - 20+ Clinics */}
-                                            <div className="group relative overflow-hidden rounded-xl bg-brand-gray p-4 transition-transform hover:scale-105 xs:col-span-2 sm:rounded-2xl sm:p-5 md:col-span-1 lg:rounded-3xl lg:p-6">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
-                                                        <div className="mb-1 text-[10px] font-medium text-brand-dark opacity-60 sm:text-xs">
-                                                            3
-                                                        </div>
-                                                        <h3 className="text-base font-bold leading-tight text-brand-dark sm:text-lg lg:text-xl">
-                                                            20+
-                                                            <br />
-                                                            Clinics
-                                                        </h3>
-                                                    </div>
-                                                    <button className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-brand-dark/20 transition-colors hover:bg-black/5 sm:h-8 sm:w-8 lg:h-9 lg:w-9">
-                                                        <svg
-                                                            className="h-3.5 w-3.5 text-brand-dark sm:h-4 sm:w-4 lg:h-5 lg:w-5"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                strokeLinecap="round"
-                                                                strokeLinejoin="round"
-                                                                strokeWidth={2}
-                                                                d="M12 4v16m8-8H4"
-                                                            />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </main>
 
-                                {/* Decorative curved line */}
-                                <div className="absolute bottom-0 left-0 right-0 -z-10 h-96 w-full opacity-20">
+                                {/* Decorative curved line - Adjusted for removed section */}
+                                <div className="absolute bottom-0 left-0 right-0 -z-10 h-72 w-full opacity-20 sm:h-96">
                                     <svg
                                         className="h-full w-full"
                                         viewBox="0 0 1200 400"
@@ -764,10 +674,10 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                                 className="relative flex h-full w-full flex-shrink-0 snap-start snap-always flex-col bg-brand-light"
                                 style={{ boxShadow: '0 -2px 0 0 var(--color-brand-light, #f6f6f7), 0 2px 0 0 var(--color-brand-light, #f6f6f7)' }}
                             >
-                                <div className="flex flex-1 flex-col items-center justify-center px-4 py-8 text-brand-dark sm:px-6 sm:py-10 md:px-10 lg:px-14 xl:px-16">
+                                <div className="flex flex-1 flex-col items-center justify-start px-4 pt-10 pb-8 text-brand-dark sm:px-6 sm:pt-16 sm:pb-10 md:px-10 lg:px-14 xl:px-16">
                                     <div className="w-full max-w-4xl text-center">
                                         {/* Masthead Title */}
-                                        <p className="mb-2 text-xs font-medium uppercase tracking-widest text-brand-blue sm:text-sm">The Architects</p>
+                                        <p className="mb-2 text-xs font-medium uppercase tracking-widest text-brand-blue sm:text-sm">THE CODE WIZARDS</p>
                                         <h2 className="mb-4 text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>
                                             BlueTooth Dental
                                         </h2>
@@ -776,30 +686,67 @@ export default function Welcome({ treatmentTypes = [], dentists = [] }: WelcomeP
                                         </p>
 
                                         {/* Developer Cards */}
-                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:gap-8">
+                                        <div className="mt-60 grid grid-cols-1 gap-12 sm:grid-cols-2 sm:gap-10 md:gap-12">
                                             {/* Michael Castillo - Lead Architect */}
-                                            <div className="group rounded-2xl border border-brand-dark/5 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:rounded-3xl sm:p-8">
-                                                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-dark/5 text-brand-dark transition-colors group-hover:bg-brand-blue group-hover:text-white sm:h-20 sm:w-20">
-                                                    <svg className="h-8 w-8 sm:h-10 sm:w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    </svg>
+                                            <div className="group relative">
+                                                {/* The Peeking Photo - Z-0 (Behind) */}
+                                                <div className="absolute left-1/2 -top-48 z-0 h-56 w-auto -translate-x-1/2 transition-transform duration-500 ease-in-out group-hover:-translate-y-4 group-hover:scale-110">
+                                                    <img src="/michael.png" alt="Michael Castillo" className="h-full w-auto object-contain drop-shadow-2xl" />
                                                 </div>
-                                                <h3 className="mb-1 text-xl font-bold sm:text-2xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>Michael Castillo</h3>
-                                                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand-blue sm:text-sm">Lead Architect</p>
-                                                <p className="text-xs text-brand-dark/60 sm:text-sm">The Backbone — Security, Speed, and Infrastructure</p>
+
+                                                {/* The Card - Z-10 (Front) */}
+                                                <div className="relative z-10 flex flex-col items-center rounded-2xl border border-brand-dark/5 bg-white p-6 text-center shadow-sm transition-all duration-300 group-hover:shadow-xl sm:rounded-3xl sm:p-8">
+                                                    <h3 className="mb-1 text-xl font-bold sm:text-2xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>Michael Castillo</h3>
+                                                    <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand-blue sm:text-sm">MAIN BACKEND</p>
+                                                    <p className="text-xs text-brand-dark/60 sm:text-sm">The Backbone — Security, Speed, and Infrastructure</p>
+                                                    
+                                                    {/* Social Links */}
+                                                    <div className="mt-4 flex items-center justify-center gap-4">
+                                                        <a href="https://www.linkedin.com/in/its-jm-linkin/" target="_blank" rel="noopener noreferrer" className="text-brand-dark/40 transition-colors hover:text-brand-blue">
+                                                            <span className="sr-only">LinkedIn</span>
+                                                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                <path fillRule="evenodd" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </a>
+                                                        <a href="https://github.com/michaelgigihub" target="_blank" rel="noopener noreferrer" className="text-brand-dark/40 transition-colors hover:text-brand-blue">
+                                                            <span className="sr-only">GitHub</span>
+                                                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </a>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             {/* Cairos Magno - Head of Experience */}
-                                            <div className="group rounded-2xl border border-brand-dark/5 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:rounded-3xl sm:p-8">
-                                                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-dark/5 text-brand-dark transition-colors group-hover:bg-brand-blue group-hover:text-white sm:h-20 sm:w-20">
-                                                    <svg className="h-8 w-8 sm:h-10 sm:w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                                                    </svg>
+                                            <div className="group relative">
+                                                {/* The Peeking Photo - Z-0 (Behind) */}
+                                                <div className="absolute left-1/2 -top-48 z-0 h-56 w-auto -translate-x-1/2 transition-transform duration-500 ease-in-out group-hover:-translate-y-4 group-hover:scale-110">
+                                                    <img src="/cairos.png" alt="Cairos Magno" className="h-full w-auto object-contain drop-shadow-2xl" />
                                                 </div>
-                                                <h3 className="mb-1 text-xl font-bold sm:text-2xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>Cairos Magno</h3>
-                                                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand-blue sm:text-sm">Head of Experience</p>
-                                                <p className="text-xs text-brand-dark/60 sm:text-sm">The Soul — Design, Flow, and Human Interaction</p>
+
+                                                {/* The Card - Z-10 (Front) */}
+                                                <div className="relative z-10 flex flex-col items-center rounded-2xl border border-brand-dark/5 bg-white p-6 text-center shadow-sm transition-all duration-300 group-hover:shadow-xl sm:rounded-3xl sm:p-8">
+                                                    <h3 className="mb-1 text-xl font-bold sm:text-2xl" style={{ fontFamily: 'Clash Display, sans-serif' }}>Cairos Magno</h3>
+                                                    <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand-blue sm:text-sm">MAIN FRONTEND</p>
+                                                    <p className="text-xs text-brand-dark/60 sm:text-sm">The Soul — Design, Flow, and Human Interaction</p>
+
+                                                    {/* Social Links */}
+                                                    <div className="mt-4 flex items-center justify-center gap-4">
+                                                        <a href="https://www.linkedin.com/in/cairos-magno/" target="_blank" rel="noopener noreferrer" className="text-brand-dark/40 transition-colors hover:text-brand-blue">
+                                                            <span className="sr-only">LinkedIn</span>
+                                                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                <path fillRule="evenodd" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </a>
+                                                        <a href="https://github.com/Caiffeine" target="_blank" rel="noopener noreferrer" className="text-brand-dark/40 transition-colors hover:text-brand-blue">
+                                                            <span className="sr-only">GitHub</span>
+                                                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </a>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
